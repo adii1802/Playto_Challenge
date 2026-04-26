@@ -15,6 +15,9 @@ from kyc.views import (
     NotificationListView,
     PersonalDetailView,
     ReviewerQueueView,
+    ReviewerMetricsView,
+    ReviewerApplicationDetailView,
+    ReviewerApplicationActionView,
 )
 
 router = DefaultRouter()
@@ -51,6 +54,27 @@ urlpatterns = [
     # Merchant notifications
     path("notifications/", NotificationListView.as_view(), name="notifications"),
 
-    # Reviewer queue + metrics
+    # -----------------------------------------------------------------------
+    # Phase 2 — Reviewer dashboard
+    # -----------------------------------------------------------------------
+
+    # Queue: list of submitted/under_review applications (oldest first)
     path("reviewer/queue/", ReviewerQueueView.as_view(), name="reviewer-queue"),
+
+    # Metrics: queue_count, avg_time_in_queue_hours, approval_rate_last_7_days
+    path("reviewer/metrics/", ReviewerMetricsView.as_view(), name="reviewer-metrics"),
+
+    # Application detail (full personal/business/docs/history)
+    path(
+        "reviewer/application/<int:pk>/",
+        ReviewerApplicationDetailView.as_view(),
+        name="reviewer-application-detail",
+    ),
+
+    # Review action: approved | rejected | more_info_requested
+    path(
+        "reviewer/application/<int:pk>/action/",
+        ReviewerApplicationActionView.as_view(),
+        name="reviewer-application-action",
+    ),
 ]

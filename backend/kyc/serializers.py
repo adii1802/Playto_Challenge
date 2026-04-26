@@ -12,6 +12,10 @@ File validation:
 - Magic-byte validation lives in DocumentUploadSerializer.validate_file()
   using the `filetype` library which reads actual file-header bytes (signatures).
   Extension-only checks are NOT used. ✅
+
+Phase 2 additions:
+- ReviewerQueueItemSerializer  — lightweight queue row with merchant name.
+- ReviewerActionInputSerializer — validates { action, reason } POST body.
 """
 
 import filetype
@@ -155,6 +159,72 @@ class KYCApplicationListSerializer(serializers.ModelSerializer):
 
     def get_at_risk(self, obj) -> bool:
         return obj.at_risk
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Reviewer dashboard serializers
+# ---------------------------------------------------------------------------
+
+class ReviewerQueueItemSerializer(serializers.ModelSerializer):
+    """
+    Queue-row serializer used by GET /api/v1/reviewer/queue/.
+    Includes merchant name and email so the UI can show them directly.
+    at_risk is a SerializerMethodField — never a stored column. ✅
+    """
+
+    at_risk = serializers.SerializerMethodField()
+    merchant_name = serializers.SerializerMethodField()
+    merchant_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = KYCApplication
+        fields = [
+            "id",
+            "merchant",
+            "merchant_name",
+            "merchant_email",
+            "status",
+            "submitted_at",
+            "at_risk",
+        ]
+        read_only_fields = fields
+
+    def get_at_risk(self, obj) -> bool:
+        return obj.at_risk  # computed property — no stored column ✅
+
+    def get_merchant_name(self, obj) -> str:
+        # Prefer business name, fall back to email prefix
+        if hasattr(obj, "business_detail") and obj.business_detail:
+            return obj.business_detail.business_name
+        return obj.merchant.email.split("@")[0]
+
+    def get_merchant_email(self, obj) -> str:
+        return obj.merchant.email
+
+
+class ReviewerActionInputSerializer(serializers.Serializer):
+    """
+    Validates the body of POST /api/v1/reviewer/application/:id/action/.
+    Does NOT write to the DB — the view calls the state machine directly.
+    """
+
+    VALID_ACTIONS = ["approved", "rejected", "more_info_requested"]
+
+    action = serializers.ChoiceField(choices=VALID_ACTIONS)
+    reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=2000,
+    )
+
+    def validate(self, data):
+        # reason is mandatory for rejection and more_info_requested
+        if data["action"] in ("rejected", "more_info_requested") and not data.get("reason"):
+            raise serializers.ValidationError(
+                {"reason": "A reason is required for this action."}
+            )
+        return data
 
 
 class KYCApplicationDetailSerializer(serializers.ModelSerializer):

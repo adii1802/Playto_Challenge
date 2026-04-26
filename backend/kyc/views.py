@@ -42,6 +42,8 @@ from kyc.serializers import (
     NotificationEventSerializer,
     PersonalDetailSerializer,
     ReviewActionSerializer,
+    ReviewerQueueItemSerializer,
+    ReviewerActionInputSerializer,
 )
 from kyc.state_machine import (
     SUBMITTED,
@@ -464,14 +466,14 @@ class NotificationListView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# Reviewer queue metrics
+# Phase 2 — Reviewer dashboard endpoints
 # ---------------------------------------------------------------------------
 
 class ReviewerQueueView(APIView):
     """
     GET /api/v1/reviewer/queue/
-    Returns submitted + under_review applications oldest-first,
-    plus dashboard metrics.
+    Returns submitted + under_review applications, oldest first.
+    Each row includes merchant_name, merchant_email, status, submitted_at, at_risk.
     """
 
     permission_classes = [IsAuthenticated]
@@ -480,19 +482,47 @@ class ReviewerQueueView(APIView):
         if not _is_reviewer(request.user):
             return _err("Only reviewers can access the queue.", http_status=403)
 
-        from datetime import timedelta
-        from django.db.models import Avg, F, ExpressionWrapper, DurationField
-
         queue_statuses = [SUBMITTED, UNDER_REVIEW]
         queue_qs = (
             KYCApplication.objects.filter(status__in=queue_statuses)
-            .select_related("merchant", "personal_detail", "business_detail")
-            .prefetch_related("documents", "review_actions__reviewer")
-            .order_by("created_at")  # oldest first
+            .select_related("merchant", "business_detail")
+            .order_by("submitted_at", "created_at")  # oldest first
+        )
+        return Response(
+            ReviewerQueueItemSerializer(queue_qs, many=True).data
         )
 
+
+class ReviewerMetricsView(APIView):
+    """
+    GET /api/v1/reviewer/metrics/
+    Returns: queue_count, avg_time_in_queue_hours, approval_rate_last_7_days.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _is_reviewer(request.user):
+            return _err("Only reviewers can access metrics.", http_status=403)
+
+        from datetime import timedelta
+
+        queue_statuses = [SUBMITTED, UNDER_REVIEW]
+        active_apps = list(
+            KYCApplication.objects.filter(status__in=queue_statuses)
+        )
+
+        # Average hours in queue (Python-side, avoids DB-specific duration math)
+        now = timezone.now()
+        durations = [
+            (now - app.submitted_at).total_seconds() / 3600
+            for app in active_apps
+            if app.submitted_at
+        ]
+        avg_hours = round(sum(durations) / len(durations), 2) if durations else None
+
         # 7-day approval rate
-        seven_days_ago = timezone.now() - timedelta(days=7)
+        seven_days_ago = now - timedelta(days=7)
         recent_closed = KYCApplication.objects.filter(
             last_status_change_at__gte=seven_days_ago,
             status__in=[APPROVED, REJECTED],
@@ -503,26 +533,100 @@ class ReviewerQueueView(APIView):
             round(approved_count / total_closed * 100, 1) if total_closed else None
         )
 
-        # Average time in queue (submitted_at → now for active items)
-        # Computed in Python to avoid DB-specific duration arithmetic
-        active_apps = list(queue_qs)
-        now = timezone.now()
-        durations = [
-            (now - app.submitted_at).total_seconds() / 3600
-            for app in active_apps
-            if app.submitted_at
-        ]
-        avg_hours = round(sum(durations) / len(durations), 2) if durations else None
-
         return Response(
             {
-                "metrics": {
-                    "queue_count": len(active_apps),
-                    "avg_time_in_queue_hours": avg_hours,
-                    "seven_day_approval_rate_pct": approval_rate,
-                },
-                "applications": KYCApplicationListSerializer(
-                    active_apps, many=True
-                ).data,
+                "queue_count": len(active_apps),
+                "avg_time_in_queue_hours": avg_hours,
+                "approval_rate_last_7_days": approval_rate,
             }
         )
+
+
+class ReviewerApplicationDetailView(APIView):
+    """
+    GET /api/v1/reviewer/application/:id/
+    Full detail: personal, business, documents, review history.
+    Reviewer-only. ✅
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _is_reviewer(request.user):
+            return _err("Only reviewers can access application details.", http_status=403)
+
+        application = get_object_or_404(
+            KYCApplication.objects.select_related(
+                "merchant", "personal_detail", "business_detail"
+            ).prefetch_related("documents", "review_actions__reviewer"),
+            pk=pk,
+        )
+        return Response(KYCApplicationDetailSerializer(application).data)
+
+
+class ReviewerApplicationActionView(APIView):
+    """
+    POST /api/v1/reviewer/application/:id/action/
+    Body: { action: "approved" | "rejected" | "more_info_requested", reason: "..." }
+
+    Rules:
+    - Reviewer-only. ✅
+    - Input validated by ReviewerActionInputSerializer. ✅
+    - Status change goes through state_machine.transition() ONLY. ✅
+    - Never assigns application.status directly. ✅
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    # Map action string → state machine constant
+    _ACTION_TO_STATE = {
+        "approved": APPROVED,
+        "rejected": REJECTED,
+        "more_info_requested": MORE_INFO_REQUESTED,
+    }
+
+    def post(self, request, pk):
+        if not _is_reviewer(request.user):
+            return _err("Only reviewers can perform review actions.", http_status=403)
+
+        application = get_object_or_404(
+            KYCApplication.objects.select_related("merchant"),
+            pk=pk,
+        )
+
+        # Validate input
+        serializer = ReviewerActionInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return _err("Invalid action payload.", str(serializer.errors))
+
+        action_str = serializer.validated_data["action"]
+        reason = serializer.validated_data.get("reason", "")
+        new_status = self._ACTION_TO_STATE[action_str]
+
+        # If the application is still in SUBMITTED, auto-move it to UNDER_REVIEW first
+        # so the reviewer can approve/reject/request-info without a separate step.
+        if application.status == SUBMITTED and new_status in (APPROVED, REJECTED, MORE_INFO_REQUESTED):
+            old_status = application.status
+            try:
+                transition(application, UNDER_REVIEW)
+            except DjangoValidationError as exc:
+                return _err(exc.message, http_status=400)
+            _notify_status_change(application, old_status, UNDER_REVIEW)
+
+        # Now perform the requested transition via the state machine
+        old_status = application.status
+        try:
+            transition(application, new_status)
+        except DjangoValidationError as exc:
+            return _err(exc.message, http_status=400)
+
+        # Record the review action
+        ReviewAction.objects.create(
+            application=application,
+            reviewer=request.user,
+            action=action_str,
+            reason=reason,
+        )
+        _notify_status_change(application, old_status, new_status)
+
+        return Response(KYCApplicationDetailSerializer(application).data)
