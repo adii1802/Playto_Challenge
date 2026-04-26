@@ -1,32 +1,44 @@
 """
 Django settings for playto_kyc project.
-Dev: SQLite + local MEDIA_ROOT.
-Swap DB settings for PostgreSQL in production.
+Dev:  SQLite + local MEDIA_ROOT  (DATABASE_URL not set)
+Prod: PostgreSQL via DATABASE_URL (Railway injects this automatically)
 """
 
+import os
 from pathlib import Path
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-change-me-in-production-xyz123"
+# ── Security ──────────────────────────────────────────────────────────────────
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "django-insecure-change-me-in-production-xyz123",   # fallback for local dev only
+)
 
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False").lower() not in ("false", "0", "no")
 
 ALLOWED_HOSTS = ["*"]
 
+# ── Application definition ────────────────────────────────────────────────────
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party
     "rest_framework",
     "rest_framework.authtoken",
+    "corsheaders",
+    # Local
     "kyc",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",          # serve static files
+    "corsheaders.middleware.CorsMiddleware",               # CORS — must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -55,17 +67,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "playto_kyc.wsgi.application"
 
-# Database — SQLite for dev. Swap for PostgreSQL in production.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# ── Database ──────────────────────────────────────────────────────────────────
+# Railway sets DATABASE_URL automatically when a PostgreSQL plugin is attached.
+# Locally, fall back to SQLite.
+_DATABASE_URL = os.environ.get("DATABASE_URL")
 
+if _DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
 AUTH_USER_MODEL = "kyc.User"
 
-# DRF settings
+# ── Django REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
@@ -78,14 +104,38 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Internationalisation
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# In production, restrict this to your actual Vercel frontend URL, e.g.:
+#   CORS_ALLOWED_ORIGINS = ["https://your-app.vercel.app"]
+# For initial deployment, allow all origins so you can test immediately.
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Expose the Authorization header so the frontend can send tokens.
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+# ── Internationalisation ──────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-# Static / media
+# ── Static / Media files ──────────────────────────────────────────────────────
 STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise: compress + cache-bust static files in production
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
