@@ -177,6 +177,23 @@ class KYCApplicationViewSet(viewsets.ModelViewSet):
         if not _is_merchant(request.user):
             return _err("Only merchants can submit applications.", http_status=403)
 
+        # ── Completeness checks before transitioning ──────────────────────
+        if not hasattr(application, "personal_detail"):
+            return _err(
+                "Incomplete application.",
+                "Personal details are required before submitting.",
+            )
+        if not hasattr(application, "business_detail"):
+            return _err(
+                "Incomplete application.",
+                "Business details are required before submitting.",
+            )
+        if not application.documents.exists():
+            return _err(
+                "Incomplete application.",
+                "At least one document must be uploaded before submitting.",
+            )
+
         old_status = application.status
         try:
             transition(application, SUBMITTED)
