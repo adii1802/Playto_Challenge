@@ -1,119 +1,76 @@
-/**
- * ReviewerApplicationDetail.jsx
- * Route: /reviewer/application/:id
- *
- * Shows:
- * - Personal details, business details
- * - Document links (PDF → new tab, images → inline preview)
- * - Review history (past actions + reasons), newest first
- * - Three action buttons: Approve / Reject / Request More Info
- *   Each opens a modal with a reason textarea before confirming.
- * - On success → redirect back to queue
- */
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
+import AppShell from '../components/AppShell';
+import { C, STATUS, StatusBadge, Spinner, btn }  "from '$(import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import api from '../api';
+import AppShell from '../components/AppShell';
+import { C, STATUS, StatusBadge, Spinner, btn }  "from '$(import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import api from '../api';
+import AppShell from '../components/AppShell';
+import { C, STATUS, StatusBadge, Spinner, btn }  "from '$(import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import api from '../api';
+import AppShell from '../components/AppShell';
+import { C, STATUS, StatusBadge, Spinner, btn } from '../styles';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+const ACTION_MAP = {
+  approved:            { label: 'Approve',           style: { ...btn.primary }, requireReason: false },
+  rejected:            { label: 'Reject',            style: { ...btn.danger },  requireReason: true  },
+  more_info_requested: { label: 'Request More Info', style: { ...btn.secondary, border: '1px solid #E9D5FF', color: '#A855F7', background: '#FDF4FF' }, requireReason: true },
+};
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'medium' }).format(new Date(iso));
-}
-
-function StatusBadge({ status }) {
-  const palette = {
-    submitted: { bg: '#1f3a5f', text: '#58a6ff', label: 'Submitted' },
-    under_review: { bg: '#3d2a0a', text: '#d29922', label: 'Under Review' },
-    approved: { bg: '#1a3a2a', text: '#3fb950', label: 'Approved' },
-    rejected: { bg: '#3a1a1a', text: '#f85149', label: 'Rejected' },
-    more_info_requested: { bg: '#2a1f3d', text: '#bc8cff', label: 'More Info Requested' },
-    draft: { bg: '#222', text: '#8b949e', label: 'Draft' },
-  };
-  const p = palette[status] || { bg: '#222', text: '#8b949e', label: status };
-  return (
-    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold" style={{ background: p.bg, color: p.text }}>
-      {p.label}
-    </span>
-  );
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
 }
 
 function Section({ title, children }) {
   return (
-    <div className="rounded-xl border p-6 mb-5" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-      <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>{title}</h2>
-      {children}
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.border}` }}>
+        <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+          textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
+      </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
     </div>
   );
 }
 
-function Field({ label, value }) {
+function KV({ label, value }) {
   return (
     <div>
-      <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-sm font-medium">{value || '—'}</p>
+      <div style={{ fontSize: '11px', fontWeight: '500', color: C.textMuted,
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: '14px', color: C.textPrimary }}>{value || '—'}</div>
     </div>
   );
 }
-
-// ─── Action modal ─────────────────────────────────────────────────────────────
 
 function ActionModal({ action, onConfirm, onCancel, loading }) {
   const [reason, setReason] = useState('');
-
-  const config = {
-    approved: { label: 'Approve Application', color: '#3fb950', bg: '#1a3a2a', requireReason: false },
-    rejected: { label: 'Reject Application', color: '#f85149', bg: '#3a1a1a', requireReason: true },
-    more_info_requested: { label: 'Request More Information', color: '#bc8cff', bg: '#2a1f3d', requireReason: true },
-  }[action];
-
-  const canSubmit = !loading && (!config.requireReason || reason.trim().length >= 5);
-
+  const cfg = ACTION_MAP[action];
+  const canSubmit = !loading && (!cfg.requireReason || reason.trim().length >= 5);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div
-        className="w-full max-w-md rounded-2xl border p-6 shadow-2xl"
-        style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
-      >
-        <h3 className="text-lg font-bold mb-1">{config.label}</h3>
-        <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
-          {config.requireReason ? 'A reason is required.' : 'You may optionally add a note.'}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)', padding: 28, width: 420, maxWidth: '90vw' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>{cfg.label}</h3>
+        <p style={{ fontSize: '13px', color: C.textSecondary, marginBottom: 18 }}>
+          {cfg.requireReason ? 'A reason is required for this action.' : 'You may optionally add a note.'}
         </p>
-
-        <textarea
-          rows={4}
-          placeholder="Enter your reason here…"
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg text-sm resize-none outline-none mb-5"
-          style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-primary)',
-          }}
-        />
-
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 py-2 rounded-lg text-sm font-medium border transition-colors"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(reason)}
-            disabled={!canSubmit}
-            className="flex-1 py-2 rounded-lg text-sm font-bold transition-opacity"
-            style={{
-              background: config.bg,
-              color: config.color,
-              border: `1px solid ${config.color}`,
-              opacity: canSubmit ? 1 : 0.4,
-            }}
-          >
+        <textarea rows={4} placeholder="Enter reason…" value={reason} onChange={e => setReason(e.target.value)}
+          style={{ display: 'block', width: '100%', background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: '0.5rem', padding: '10px 12px', fontSize: '14px', color: C.textPrimary,
+            resize: 'vertical', marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{ ...btn.secondary, flex: 1 }}>Cancel</button>
+          <button onClick={() => onConfirm(reason)} disabled={!canSubmit}
+            style={{ ...cfg.style, flex: 1, opacity: canSubmit ? 1 : 0.4 }}>
             {loading ? 'Submitting…' : 'Confirm'}
           </button>
         </div>
@@ -122,285 +79,898 @@ function ActionModal({ action, onConfirm, onCancel, loading }) {
   );
 }
 
-// ─── Document preview ─────────────────────────────────────────────────────────
-
-function DocCard({ doc }) {
-  const isImage = doc.file && /\.(jpg|jpeg|png)(\?|$)/i.test(doc.file);
-  const isPdf = doc.file && /\.pdf(\?|$)/i.test(doc.file);
-  const label = { pan: 'PAN', aadhaar: 'Aadhaar', bank_statement: 'Bank Statement' }[doc.doc_type] || doc.doc_type;
-
-  return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--bg-elevated)' }}>
-      {isImage ? (
-        <a href={doc.file} target="_blank" rel="noopener noreferrer">
-          <img src={doc.file} alt={label} className="w-full h-40 object-cover" />
-        </a>
-      ) : (
-        <div className="h-40 flex flex-col items-center justify-center gap-3" style={{ background: '#1a1f2e' }}>
-          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#f85149' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <a
-            href={doc.file}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium px-3 py-1 rounded-lg"
-            style={{ background: '#2a1a1a', color: '#f85149', border: '1px solid #5a2020' }}
-          >
-            Open PDF ↗
-          </a>
-        </div>
-      )}
-      <div className="px-3 py-2">
-        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Uploaded {fmtDate(doc.uploaded_at)}</p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Review history ───────────────────────────────────────────────────────────
-
-function ReviewHistory({ actions }) {
-  const actionColors = {
-    approved: '#3fb950',
-    rejected: '#f85149',
-    more_info_requested: '#bc8cff',
-    under_review: '#d29922',
-  };
-  if (!actions || actions.length === 0) {
-    return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No review actions yet.</p>;
-  }
-  return (
-    <div className="space-y-3">
-      {actions.map(a => (
-        <div key={a.id} className="flex gap-4 p-3 rounded-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-          <div
-            className="w-2 rounded-full self-stretch shrink-0"
-            style={{ background: actionColors[a.action] || 'var(--text-muted)' }}
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-xs font-bold uppercase" style={{ color: actionColors[a.action] || 'var(--text-muted)' }}>
-                {a.action.replace(/_/g, ' ')}
-              </span>
-              <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{fmtDate(a.created_at)}</span>
-            </div>
-            {a.reason && <p className="text-xs break-words" style={{ color: 'var(--text-primary)' }}>{a.reason}</p>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── main component ───────────────────────────────────────────────────────────
-
-const TERMINAL_STATUSES = ['approved', 'rejected'];
+const TERMINAL = ['approved', 'rejected'];
 
 export default function ReviewerApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [app, setApp] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [activeAction, setActiveAction] = useState(null); // 'approved' | 'rejected' | 'more_info_requested'
+  const [app,           setApp]           = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [activeAction,  setActiveAction]  = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState('');
+  const [actionError,   setActionError]   = useState('');
 
   const fetchApp = useCallback(async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const res = await api.get(`/reviewer/application/${id}/`);
       setApp(res.data);
     } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Failed to load application';
-      setError(msg);
+      setError(err.response?.data?.error || err.message);
       if (err.response?.status === 403) { localStorage.clear(); navigate('/login'); }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [id, navigate]);
 
   useEffect(() => { fetchApp(); }, [fetchApp]);
 
   async function handleAction(reason) {
-    setActionLoading(true);
-    setActionError('');
+    setActionLoading(true); setActionError('');
     try {
-      await api.post(`/reviewer/application/${id}/action/`, {
-        action: activeAction,
-        reason,
-      });
+      await api.post(`/reviewer/application/${id}/action/`, { action: activeAction, reason });
       setActiveAction(null);
       navigate('/reviewer/queue');
     } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Action failed';
-      setActionError(msg);
+      setActionError(err.response?.data?.error || err.message);
       setActionLoading(false);
     }
   }
 
-  const isTerminal = app && TERMINAL_STATUSES.includes(app.status);
+  if (loading) return <Spinner />;
+  if (error)   return <AppShell title={`Application #${id}`}><p style={{ color: '#E11D48' }}>{error}</p></AppShell>;
+  if (!app)    return null;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-        </svg>
-      </div>
-    );
-  }
+  const pd  = app.personal_detail;
+  const bd  = app.business_detail;
+  const isTerminal = TERMINAL.includes(app.status);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="text-center">
-          <p className="mb-4" style={{ color: 'var(--red)' }}>{error}</p>
-          <button onClick={() => navigate('/reviewer/queue')} style={{ color: 'var(--accent)' }}>← Back to queue</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!app) return null;
-
-  const pd = app.personal_detail;
-  const bd = app.business_detail;
+  const actionColors = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-      {/* modal */}
+    <AppShell title={
+      <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => navigate('/reviewer/queue')}
+          style={{ ...btn.ghost, padding: '4px 8px', fontSize: '13px' }}>← Queue</button>
+        <span style={{ color: C.border }}>|</span>
+        Application #{id}
+        <StatusBadge status={app.status} />
+        {app.at_risk && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3',
+            borderRadius: '9999px', padding: '2px 10px', fontSize: '12px', fontWeight: '600' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E11D48', display: 'inline-block' }} />
+            AT RISK
+          </span>
+        )}
+      </span>
+    }>
       {activeAction && (
-        <ActionModal
-          action={activeAction}
+        <ActionModal action={activeAction}
           onConfirm={handleAction}
           onCancel={() => { setActiveAction(null); setActionError(''); }}
-          loading={actionLoading}
-        />
+          loading={actionLoading} />
       )}
 
-      {/* header */}
-      <header
-        className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-      >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/reviewer/queue')}
-            className="text-xs flex items-center gap-1 font-medium transition-colors"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            ← Queue
-          </button>
-          <span style={{ color: 'var(--border)' }}>|</span>
-          <span className="text-sm font-semibold">Application #{id}</span>
-          <StatusBadge status={app.status} />
-          {app.at_risk && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold animate-pulse" style={{ background: '#3a1a1a', color: '#f85149' }}>
-              ⚠ AT RISK
-            </span>
-          )}
+      {actionError && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 20 }}>{actionError}</div>
+      )}
+
+      {/* Personal */}
+      <Section title="Personal Details">
+        {pd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Full Name" value={pd.name} />
+            <KV label="Email" value={pd.email} />
+            <KV label="Phone" value={pd.phone} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Business */}
+      <Section title="Business Details">
+        {bd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Business Name" value={bd.business_name} />
+            <KV label="Type" value={bd.business_type} />
+            <KV label="Monthly Volume" value={bd.monthly_volume_usd ? `$${Number(bd.monthly_volume_usd).toLocaleString()}` : '—'} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Documents */}
+      <Section title={`Documents (${app.documents?.length ?? 0})`}>
+        {app.documents?.length ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            {app.documents.map(doc => {
+              const isImg = /\.(jpg|jpeg|png)(\?|$)/i.test(doc.file);
+              const lbl = { pan: 'PAN', aadhaar: 'Aadhaar', bank_statement: 'Bank Statement' }[doc.doc_type] || doc.doc_type;
+              return (
+                <div key={doc.id} style={{ border: `1px solid ${C.border}`, borderRadius: '0.5rem', overflow: 'hidden' }}>
+                  {isImg
+                    ? <a href={doc.file} target="_blank" rel="noopener noreferrer"><img src={doc.file} alt={lbl} style={{ width: '100%', height: 120, objectFit: 'cover' }} /></a>
+                    : <div style={{ height: 120, background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <a href={doc.file} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '12px', color: C.primary }}>Open PDF ↗</a>
+                      </div>
+                  }
+                  <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: C.textPrimary }}>{lbl}</div>
+                    <div style={{ fontSize: '11px', color: C.textMuted }}>Uploaded {fmtDate(doc.uploaded_at)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No documents uploaded.</p>}
+      </Section>
+
+      {/* Review History */}
+      <Section title="Review History">
+        {app.review_actions?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {app.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${actionColors[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: actionColors[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g, ' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No review actions yet.</p>}
+      </Section>
+
+      {/* Action buttons */}
+      {!isTerminal && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+          <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+            textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Take Action</h2>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {Object.entries(ACTION_MAP).map(([key, cfg]) => (
+              <button id={`btn-${key}`} key={key}
+                onClick={() => setActiveAction(key)}
+                style={{ ...cfg.style, flex: 1 }}>
+                {cfg.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </header>
+      )}
+      {isTerminal && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '0.5rem',
+          padding: '14px 20px', fontSize: '13px', color: C.textSecondary, textAlign: 'center' }}>
+          This application is in a terminal state (<strong>{app.status}</strong>) — no further actions available.
+        </div>
+      )}
+    </AppShell>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* action error */}
-        {actionError && (
-          <div className="mb-5 px-4 py-3 rounded-lg text-sm border" style={{ background: '#2d1a1a', borderColor: '#5a2020', color: 'var(--red)' }}>
-            {actionError}
-          </div>
-        )}
+const ACTION_MAP = {
+  approved:            { label: 'Approve',           style: { ...btn.primary }, requireReason: false },
+  rejected:            { label: 'Reject',            style: { ...btn.danger },  requireReason: true  },
+  more_info_requested: { label: 'Request More Info', style: { ...btn.secondary, border: '1px solid #E9D5FF', color: '#A855F7', background: '#FDF4FF' }, requireReason: true },
+};
 
-        {/* Personal */}
-        <Section title="Personal Details">
-          {pd ? (
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Full Name" value={pd.name} />
-              <Field label="Email" value={pd.email} />
-              <Field label="Phone" value={pd.phone} />
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Not provided yet.</p>
-          )}
-        </Section>
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
+}
 
-        {/* Business */}
-        <Section title="Business Details">
-          {bd ? (
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Business Name" value={bd.business_name} />
-              <Field label="Business Type" value={bd.business_type} />
-              <Field label="Monthly Volume (USD)" value={bd.monthly_volume_usd ? `$${Number(bd.monthly_volume_usd).toLocaleString()}` : '—'} />
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Not provided yet.</p>
-          )}
-        </Section>
-
-        {/* Documents */}
-        <Section title={`Documents (${app.documents?.length ?? 0})`}>
-          {app.documents?.length > 0 ? (
-            <div className="grid grid-cols-3 gap-4">
-              {app.documents.map(doc => <DocCard key={doc.id} doc={doc} />)}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No documents uploaded.</p>
-          )}
-        </Section>
-
-        {/* Review History */}
-        <Section title="Review History">
-          <ReviewHistory actions={app.review_actions} />
-        </Section>
-
-        {/* Action buttons */}
-        {!isTerminal && (
-          <div
-            className="rounded-xl border p-6"
-            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-          >
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>
-              Take Action
-            </h2>
-            <div className="flex gap-3">
-              <button
-                id="btn-approve"
-                onClick={() => setActiveAction('approved')}
-                className="flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
-                style={{ borderColor: '#3fb950', color: '#3fb950', background: '#1a3a2a' }}
-              >
-                ✓ Approve
-              </button>
-              <button
-                id="btn-reject"
-                onClick={() => setActiveAction('rejected')}
-                className="flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
-                style={{ borderColor: '#f85149', color: '#f85149', background: '#3a1a1a' }}
-              >
-                ✕ Reject
-              </button>
-              <button
-                id="btn-more-info"
-                onClick={() => setActiveAction('more_info_requested')}
-                className="flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
-                style={{ borderColor: '#bc8cff', color: '#bc8cff', background: '#2a1f3d' }}
-              >
-                ? Request More Info
-              </button>
-            </div>
-          </div>
-        )}
-
-        {isTerminal && (
-          <div className="rounded-xl border p-4 text-sm text-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-surface)' }}>
-            This application is in a terminal state (<strong>{app.status}</strong>) — no further actions available.
-          </div>
-        )}
-      </main>
+function Section({ title, children }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.border}` }}>
+        <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+          textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
+      </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
     </div>
+  );
+}
+
+function KV({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: '11px', fontWeight: '500', color: C.textMuted,
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: '14px', color: C.textPrimary }}>{value || '—'}</div>
+    </div>
+  );
+}
+
+function ActionModal({ action, onConfirm, onCancel, loading }) {
+  const [reason, setReason] = useState('');
+  const cfg = ACTION_MAP[action];
+  const canSubmit = !loading && (!cfg.requireReason || reason.trim().length >= 5);
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)', padding: 28, width: 420, maxWidth: '90vw' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>{cfg.label}</h3>
+        <p style={{ fontSize: '13px', color: C.textSecondary, marginBottom: 18 }}>
+          {cfg.requireReason ? 'A reason is required for this action.' : 'You may optionally add a note.'}
+        </p>
+        <textarea rows={4} placeholder="Enter reason…" value={reason} onChange={e => setReason(e.target.value)}
+          style={{ display: 'block', width: '100%', background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: '0.5rem', padding: '10px 12px', fontSize: '14px', color: C.textPrimary,
+            resize: 'vertical', marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{ ...btn.secondary, flex: 1 }}>Cancel</button>
+          <button onClick={() => onConfirm(reason)} disabled={!canSubmit}
+            style={{ ...cfg.style, flex: 1, opacity: canSubmit ? 1 : 0.4 }}>
+            {loading ? 'Submitting…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TERMINAL = ['approved', 'rejected'];
+
+export default function ReviewerApplicationDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [app,           setApp]           = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [activeAction,  setActiveAction]  = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError,   setActionError]   = useState('');
+
+  const fetchApp = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await api.get(`/reviewer/application/${id}/`);
+      setApp(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      if (err.response?.status === 403) { localStorage.clear(); navigate('/login'); }
+    } finally { setLoading(false); }
+  }, [id, navigate]);
+
+  useEffect(() => { fetchApp(); }, [fetchApp]);
+
+  async function handleAction(reason) {
+    setActionLoading(true); setActionError('');
+    try {
+      await api.post(`/reviewer/application/${id}/action/`, { action: activeAction, reason });
+      setActiveAction(null);
+      navigate('/reviewer/queue');
+    } catch (err) {
+      setActionError(err.response?.data?.error || err.message);
+      setActionLoading(false);
+    }
+  }
+
+  if (loading) return <Spinner />;
+  if (error)   return <AppShell title={`Application #${id}`}><p style={{ color: '#E11D48' }}>{error}</p></AppShell>;
+  if (!app)    return null;
+
+  const pd  = app.personal_detail;
+  const bd  = app.business_detail;
+  const isTerminal = TERMINAL.includes(app.status);
+
+  const actionColors = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+  return (
+    <AppShell title={
+      <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => navigate('/reviewer/queue')}
+          style={{ ...btn.ghost, padding: '4px 8px', fontSize: '13px' }}>← Queue</button>
+        <span style={{ color: C.border }}>|</span>
+        Application #{id}
+        <StatusBadge status={app.status} />
+        {app.at_risk && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3',
+            borderRadius: '9999px', padding: '2px 10px', fontSize: '12px', fontWeight: '600' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E11D48', display: 'inline-block' }} />
+            AT RISK
+          </span>
+        )}
+      </span>
+    }>
+      {activeAction && (
+        <ActionModal action={activeAction}
+          onConfirm={handleAction}
+          onCancel={() => { setActiveAction(null); setActionError(''); }}
+          loading={actionLoading} />
+      )}
+
+      {actionError && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 20 }}>{actionError}</div>
+      )}
+
+      {/* Personal */}
+      <Section title="Personal Details">
+        {pd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Full Name" value={pd.name} />
+            <KV label="Email" value={pd.email} />
+            <KV label="Phone" value={pd.phone} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Business */}
+      <Section title="Business Details">
+        {bd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Business Name" value={bd.business_name} />
+            <KV label="Type" value={bd.business_type} />
+            <KV label="Monthly Volume" value={bd.monthly_volume_usd ? `$${Number(bd.monthly_volume_usd).toLocaleString()}` : '—'} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Documents */}
+      <Section title={`Documents (${app.documents?.length ?? 0})`}>
+        {app.documents?.length ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            {app.documents.map(doc => {
+              const isImg = /\.(jpg|jpeg|png)(\?|$)/i.test(doc.file);
+              const lbl = { pan: 'PAN', aadhaar: 'Aadhaar', bank_statement: 'Bank Statement' }[doc.doc_type] || doc.doc_type;
+              return (
+                <div key={doc.id} style={{ border: `1px solid ${C.border}`, borderRadius: '0.5rem', overflow: 'hidden' }}>
+                  {isImg
+                    ? <a href={doc.file} target="_blank" rel="noopener noreferrer"><img src={doc.file} alt={lbl} style={{ width: '100%', height: 120, objectFit: 'cover' }} /></a>
+                    : <div style={{ height: 120, background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <a href={doc.file} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '12px', color: C.primary }}>Open PDF ↗</a>
+                      </div>
+                  }
+                  <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: C.textPrimary }}>{lbl}</div>
+                    <div style={{ fontSize: '11px', color: C.textMuted }}>Uploaded {fmtDate(doc.uploaded_at)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No documents uploaded.</p>}
+      </Section>
+
+      {/* Review History */}
+      <Section title="Review History">
+        {app.review_actions?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {app.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${actionColors[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: actionColors[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g, ' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No review actions yet.</p>}
+      </Section>
+
+      {/* Action buttons */}
+      {!isTerminal && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+          <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+            textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Take Action</h2>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {Object.entries(ACTION_MAP).map(([key, cfg]) => (
+              <button id={`btn-${key}`} key={key}
+                onClick={() => setActiveAction(key)}
+                style={{ ...cfg.style, flex: 1 }}>
+                {cfg.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isTerminal && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '0.5rem',
+          padding: '14px 20px', fontSize: '13px', color: C.textSecondary, textAlign: 'center' }}>
+          This application is in a terminal state (<strong>{app.status}</strong>) — no further actions available.
+        </div>
+      )}
+    </AppShell>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+const ACTION_MAP = {
+  approved:            { label: 'Approve',           style: { ...btn.primary }, requireReason: false },
+  rejected:            { label: 'Reject',            style: { ...btn.danger },  requireReason: true  },
+  more_info_requested: { label: 'Request More Info', style: { ...btn.secondary, border: '1px solid #E9D5FF', color: '#A855F7', background: '#FDF4FF' }, requireReason: true },
+};
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.border}` }}>
+        <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+          textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
+      </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
+    </div>
+  );
+}
+
+function KV({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: '11px', fontWeight: '500', color: C.textMuted,
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: '14px', color: C.textPrimary }}>{value || '—'}</div>
+    </div>
+  );
+}
+
+function ActionModal({ action, onConfirm, onCancel, loading }) {
+  const [reason, setReason] = useState('');
+  const cfg = ACTION_MAP[action];
+  const canSubmit = !loading && (!cfg.requireReason || reason.trim().length >= 5);
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)', padding: 28, width: 420, maxWidth: '90vw' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>{cfg.label}</h3>
+        <p style={{ fontSize: '13px', color: C.textSecondary, marginBottom: 18 }}>
+          {cfg.requireReason ? 'A reason is required for this action.' : 'You may optionally add a note.'}
+        </p>
+        <textarea rows={4} placeholder="Enter reason…" value={reason} onChange={e => setReason(e.target.value)}
+          style={{ display: 'block', width: '100%', background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: '0.5rem', padding: '10px 12px', fontSize: '14px', color: C.textPrimary,
+            resize: 'vertical', marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{ ...btn.secondary, flex: 1 }}>Cancel</button>
+          <button onClick={() => onConfirm(reason)} disabled={!canSubmit}
+            style={{ ...cfg.style, flex: 1, opacity: canSubmit ? 1 : 0.4 }}>
+            {loading ? 'Submitting…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TERMINAL = ['approved', 'rejected'];
+
+export default function ReviewerApplicationDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [app,           setApp]           = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [activeAction,  setActiveAction]  = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError,   setActionError]   = useState('');
+
+  const fetchApp = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await api.get(`/reviewer/application/${id}/`);
+      setApp(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      if (err.response?.status === 403) { localStorage.clear(); navigate('/login'); }
+    } finally { setLoading(false); }
+  }, [id, navigate]);
+
+  useEffect(() => { fetchApp(); }, [fetchApp]);
+
+  async function handleAction(reason) {
+    setActionLoading(true); setActionError('');
+    try {
+      await api.post(`/reviewer/application/${id}/action/`, { action: activeAction, reason });
+      setActiveAction(null);
+      navigate('/reviewer/queue');
+    } catch (err) {
+      setActionError(err.response?.data?.error || err.message);
+      setActionLoading(false);
+    }
+  }
+
+  if (loading) return <Spinner />;
+  if (error)   return <AppShell title={`Application #${id}`}><p style={{ color: '#E11D48' }}>{error}</p></AppShell>;
+  if (!app)    return null;
+
+  const pd  = app.personal_detail;
+  const bd  = app.business_detail;
+  const isTerminal = TERMINAL.includes(app.status);
+
+  const actionColors = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+  return (
+    <AppShell title={
+      <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => navigate('/reviewer/queue')}
+          style={{ ...btn.ghost, padding: '4px 8px', fontSize: '13px' }}>← Queue</button>
+        <span style={{ color: C.border }}>|</span>
+        Application #{id}
+        <StatusBadge status={app.status} />
+        {app.at_risk && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3',
+            borderRadius: '9999px', padding: '2px 10px', fontSize: '12px', fontWeight: '600' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E11D48', display: 'inline-block' }} />
+            AT RISK
+          </span>
+        )}
+      </span>
+    }>
+      {activeAction && (
+        <ActionModal action={activeAction}
+          onConfirm={handleAction}
+          onCancel={() => { setActiveAction(null); setActionError(''); }}
+          loading={actionLoading} />
+      )}
+
+      {actionError && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 20 }}>{actionError}</div>
+      )}
+
+      {/* Personal */}
+      <Section title="Personal Details">
+        {pd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Full Name" value={pd.name} />
+            <KV label="Email" value={pd.email} />
+            <KV label="Phone" value={pd.phone} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Business */}
+      <Section title="Business Details">
+        {bd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Business Name" value={bd.business_name} />
+            <KV label="Type" value={bd.business_type} />
+            <KV label="Monthly Volume" value={bd.monthly_volume_usd ? `$${Number(bd.monthly_volume_usd).toLocaleString()}` : '—'} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Documents */}
+      <Section title={`Documents (${app.documents?.length ?? 0})`}>
+        {app.documents?.length ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            {app.documents.map(doc => {
+              const isImg = /\.(jpg|jpeg|png)(\?|$)/i.test(doc.file);
+              const lbl = { pan: 'PAN', aadhaar: 'Aadhaar', bank_statement: 'Bank Statement' }[doc.doc_type] || doc.doc_type;
+              return (
+                <div key={doc.id} style={{ border: `1px solid ${C.border}`, borderRadius: '0.5rem', overflow: 'hidden' }}>
+                  {isImg
+                    ? <a href={doc.file} target="_blank" rel="noopener noreferrer"><img src={doc.file} alt={lbl} style={{ width: '100%', height: 120, objectFit: 'cover' }} /></a>
+                    : <div style={{ height: 120, background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <a href={doc.file} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '12px', color: C.primary }}>Open PDF ↗</a>
+                      </div>
+                  }
+                  <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: C.textPrimary }}>{lbl}</div>
+                    <div style={{ fontSize: '11px', color: C.textMuted }}>Uploaded {fmtDate(doc.uploaded_at)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No documents uploaded.</p>}
+      </Section>
+
+      {/* Review History */}
+      <Section title="Review History">
+        {app.review_actions?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {app.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${actionColors[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: actionColors[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g, ' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No review actions yet.</p>}
+      </Section>
+
+      {/* Action buttons */}
+      {!isTerminal && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+          <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+            textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Take Action</h2>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {Object.entries(ACTION_MAP).map(([key, cfg]) => (
+              <button id={`btn-${key}`} key={key}
+                onClick={() => setActiveAction(key)}
+                style={{ ...cfg.style, flex: 1 }}>
+                {cfg.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isTerminal && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '0.5rem',
+          padding: '14px 20px', fontSize: '13px', color: C.textSecondary, textAlign: 'center' }}>
+          This application is in a terminal state (<strong>{app.status}</strong>) — no further actions available.
+        </div>
+      )}
+    </AppShell>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+const ACTION_MAP = {
+  approved:            { label: 'Approve',           style: { ...btn.primary }, requireReason: false },
+  rejected:            { label: 'Reject',            style: { ...btn.danger },  requireReason: true  },
+  more_info_requested: { label: 'Request More Info', style: { ...btn.secondary, border: '1px solid #E9D5FF', color: '#A855F7', background: '#FDF4FF' }, requireReason: true },
+};
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
+      <div style={{ padding: '16px 24px', borderBottom: `1px solid ${C.border}` }}>
+        <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+          textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h2>
+      </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
+    </div>
+  );
+}
+
+function KV({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: '11px', fontWeight: '500', color: C.textMuted,
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: '14px', color: C.textPrimary }}>{value || '—'}</div>
+    </div>
+  );
+}
+
+function ActionModal({ action, onConfirm, onCancel, loading }) {
+  const [reason, setReason] = useState('');
+  const cfg = ACTION_MAP[action];
+  const canSubmit = !loading && (!cfg.requireReason || reason.trim().length >= 5);
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)', padding: 28, width: 420, maxWidth: '90vw' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>{cfg.label}</h3>
+        <p style={{ fontSize: '13px', color: C.textSecondary, marginBottom: 18 }}>
+          {cfg.requireReason ? 'A reason is required for this action.' : 'You may optionally add a note.'}
+        </p>
+        <textarea rows={4} placeholder="Enter reason…" value={reason} onChange={e => setReason(e.target.value)}
+          style={{ display: 'block', width: '100%', background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: '0.5rem', padding: '10px 12px', fontSize: '14px', color: C.textPrimary,
+            resize: 'vertical', marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{ ...btn.secondary, flex: 1 }}>Cancel</button>
+          <button onClick={() => onConfirm(reason)} disabled={!canSubmit}
+            style={{ ...cfg.style, flex: 1, opacity: canSubmit ? 1 : 0.4 }}>
+            {loading ? 'Submitting…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TERMINAL = ['approved', 'rejected'];
+
+export default function ReviewerApplicationDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [app,           setApp]           = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [activeAction,  setActiveAction]  = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError,   setActionError]   = useState('');
+
+  const fetchApp = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await api.get(`/reviewer/application/${id}/`);
+      setApp(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      if (err.response?.status === 403) { localStorage.clear(); navigate('/login'); }
+    } finally { setLoading(false); }
+  }, [id, navigate]);
+
+  useEffect(() => { fetchApp(); }, [fetchApp]);
+
+  async function handleAction(reason) {
+    setActionLoading(true); setActionError('');
+    try {
+      await api.post(`/reviewer/application/${id}/action/`, { action: activeAction, reason });
+      setActiveAction(null);
+      navigate('/reviewer/queue');
+    } catch (err) {
+      setActionError(err.response?.data?.error || err.message);
+      setActionLoading(false);
+    }
+  }
+
+  if (loading) return <Spinner />;
+  if (error)   return <AppShell title={`Application #${id}`}><p style={{ color: '#E11D48' }}>{error}</p></AppShell>;
+  if (!app)    return null;
+
+  const pd  = app.personal_detail;
+  const bd  = app.business_detail;
+  const isTerminal = TERMINAL.includes(app.status);
+
+  const actionColors = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+  return (
+    <AppShell title={
+      <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => navigate('/reviewer/queue')}
+          style={{ ...btn.ghost, padding: '4px 8px', fontSize: '13px' }}>← Queue</button>
+        <span style={{ color: C.border }}>|</span>
+        Application #{id}
+        <StatusBadge status={app.status} />
+        {app.at_risk && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3',
+            borderRadius: '9999px', padding: '2px 10px', fontSize: '12px', fontWeight: '600' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E11D48', display: 'inline-block' }} />
+            AT RISK
+          </span>
+        )}
+      </span>
+    }>
+      {activeAction && (
+        <ActionModal action={activeAction}
+          onConfirm={handleAction}
+          onCancel={() => { setActiveAction(null); setActionError(''); }}
+          loading={actionLoading} />
+      )}
+
+      {actionError && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 20 }}>{actionError}</div>
+      )}
+
+      {/* Personal */}
+      <Section title="Personal Details">
+        {pd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Full Name" value={pd.name} />
+            <KV label="Email" value={pd.email} />
+            <KV label="Phone" value={pd.phone} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Business */}
+      <Section title="Business Details">
+        {bd ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            <KV label="Business Name" value={bd.business_name} />
+            <KV label="Type" value={bd.business_type} />
+            <KV label="Monthly Volume" value={bd.monthly_volume_usd ? `$${Number(bd.monthly_volume_usd).toLocaleString()}` : '—'} />
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>Not provided.</p>}
+      </Section>
+
+      {/* Documents */}
+      <Section title={`Documents (${app.documents?.length ?? 0})`}>
+        {app.documents?.length ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            {app.documents.map(doc => {
+              const isImg = /\.(jpg|jpeg|png)(\?|$)/i.test(doc.file);
+              const lbl = { pan: 'PAN', aadhaar: 'Aadhaar', bank_statement: 'Bank Statement' }[doc.doc_type] || doc.doc_type;
+              return (
+                <div key={doc.id} style={{ border: `1px solid ${C.border}`, borderRadius: '0.5rem', overflow: 'hidden' }}>
+                  {isImg
+                    ? <a href={doc.file} target="_blank" rel="noopener noreferrer"><img src={doc.file} alt={lbl} style={{ width: '100%', height: 120, objectFit: 'cover' }} /></a>
+                    : <div style={{ height: 120, background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <a href={doc.file} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '12px', color: C.primary }}>Open PDF ↗</a>
+                      </div>
+                  }
+                  <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: C.textPrimary }}>{lbl}</div>
+                    <div style={{ fontSize: '11px', color: C.textMuted }}>Uploaded {fmtDate(doc.uploaded_at)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No documents uploaded.</p>}
+      </Section>
+
+      {/* Review History */}
+      <Section title="Review History">
+        {app.review_actions?.length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {app.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${actionColors[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: actionColors[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g, ' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p style={{ color: C.textMuted, fontSize: '14px' }}>No review actions yet.</p>}
+      </Section>
+
+      {/* Action buttons */}
+      {!isTerminal && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+          <h2 style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+            textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Take Action</h2>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {Object.entries(ACTION_MAP).map(([key, cfg]) => (
+              <button id={`btn-${key}`} key={key}
+                onClick={() => setActiveAction(key)}
+                style={{ ...cfg.style, flex: 1 }}>
+                {cfg.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isTerminal && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: '0.5rem',
+          padding: '14px 20px', fontSize: '13px', color: C.textSecondary, textAlign: 'center' }}>
+          This application is in a terminal state (<strong>{app.status}</strong>) — no further actions available.
+        </div>
+      )}
+    </AppShell>
   );
 }

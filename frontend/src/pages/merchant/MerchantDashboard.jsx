@@ -1,217 +1,644 @@
-/**
- * MerchantDashboard.jsx — Application Status
- * Route: /dashboard
- */
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOnboarding } from '../../hooks/useOnboarding';
-
-const STATUS_CONFIG = {
-  draft:                { label: 'Draft',                bg: '#222',    text: '#8b949e' },
-  submitted:            { label: 'Submitted',            bg: '#1f3a5f', text: '#58a6ff' },
-  under_review:         { label: 'Under Review',         bg: '#3d2a0a', text: '#d29922' },
-  approved:             { label: 'Approved',             bg: '#1a3a2a', text: '#3fb950' },
-  rejected:             { label: 'Rejected',             bg: '#3a1a1a', text: '#f85149' },
-  more_info_requested:  { label: 'More Info Requested',  bg: '#2a1f3d', text: '#bc8cff' },
-};
+import AppShell from '../../components/AppShell';
+import { C, STATUS, StatusBadge, btn, Spinner }  "from '$(import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import AppShell from '../../components/AppShell';
+import { C, STATUS, StatusBadge, btn, Spinner }  "from '$(import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import AppShell from '../../components/AppShell';
+import { C, STATUS, StatusBadge, btn, Spinner }  "from '$(import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import AppShell from '../../components/AppShell';
+import { C, STATUS, StatusBadge, btn, Spinner } from '../../styles';
 
 function fmtDate(iso) {
   if (!iso) return '—';
   return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
 }
 
+function KV({ label, value }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '11px', color: C.textMuted, marginBottom: 3,
+        textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '500' }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: '500', color: C.textPrimary }}>{value}</div>
+    </div>
+  );
+}
+
+const ACTION_COLORS = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
 export default function MerchantDashboard() {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
   const { appData, loading, error, refreshApp } = useOnboarding();
 
   // Redirect draft apps to onboarding
   useEffect(() => {
-    if (!loading && appData?.status === 'draft') {
-      navigate('/onboarding/step/1', { replace: true });
-    }
+    if (!loading && appData?.status === 'draft') navigate('/onboarding/step/1', { replace: true });
   }, [loading, appData, navigate]);
-
-  function handleLogout() {
-    localStorage.removeItem('kyc_token');
-    localStorage.removeItem('kyc_role');
-    localStorage.removeItem('kyc_app_id');
-    navigate('/login');
-  }
-
-  const status = appData?.status;
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
-
-  // Find the latest review action reason
-  const latestAction = appData?.review_actions?.[0];
 
   if (loading) return <Spinner />;
 
-  if (error) {
-    return (
-      <Shell onLogout={handleLogout}>
-        <p style={{ color: 'var(--red)' }}>{error}</p>
-      </Shell>
-    );
-  }
+  const status = appData?.status;
+  const cfg    = STATUS[status] || STATUS.draft;
+  const latestAction = appData?.review_actions?.[0];
 
   return (
-    <Shell onLogout={handleLogout}>
+    <AppShell title="My Application">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 24 }}>{error}</div>
+      )}
+
       {/* Status card */}
-      <div
-        className="rounded-2xl border p-8 mb-6 text-center"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-      >
-        <p className="text-xs uppercase tracking-widest font-medium mb-4" style={{ color: 'var(--text-muted)' }}>
-          Application Status
-        </p>
-        <span
-          className="inline-block px-5 py-2 rounded-full text-lg font-bold mb-4"
-          style={{ background: cfg.bg, color: cfg.text }}
-        >
-          {cfg.label}
-        </span>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '32px', textAlign: 'center', marginBottom: 20 }}>
+        <p style={{ fontSize: '11px', fontWeight: '600', color: C.textMuted,
+          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Application Status</p>
+        <StatusBadge status={status} style={{ fontSize: '15px', padding: '6px 20px', marginBottom: 20 }} />
 
         {appData && (
-          <div className="flex justify-center gap-10 mt-4">
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginTop: 8 }}>
             <KV label="Application ID" value={`#${appData.id}`} />
-            <KV label="Submitted" value={fmtDate(appData.submitted_at)} />
-            <KV label="Last Update" value={fmtDate(appData.last_status_change_at)} />
+            <KV label="Submitted"      value={fmtDate(appData.submitted_at)} />
+            <KV label="Last Update"    value={fmtDate(appData.last_status_change_at)} />
           </div>
         )}
       </div>
 
-      {/* Status-specific messages */}
+      {/* Status-specific panels */}
       {status === 'approved' && (
-        <Banner color="var(--green)" bg="#1a3a2a" border="#2a5a3a">
-          🎉 Congratulations! Your KYC application has been approved. You can now start using Playto's payment services.
-        </Banner>
+        <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#16A34A', marginBottom: 6 }}>
+            🎉 Application Approved!
+          </p>
+          <p style={{ fontSize: '14px', color: '#166534' }}>
+            Your KYC has been verified. You can now start using Playto's payment services.
+          </p>
+        </div>
       )}
 
       {status === 'rejected' && (
-        <Banner color="var(--red)" bg="#2d1a1a" border="#5a2020">
-          <p className="font-bold mb-1">Application Rejected</p>
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#E11D48', marginBottom: 6 }}>Application Rejected</p>
           {latestAction?.reason && (
-            <p className="text-sm">Reason: {latestAction.reason}</p>
+            <p style={{ fontSize: '14px', color: '#9F1239' }}>Reason: {latestAction.reason}</p>
           )}
-          <p className="text-xs mt-2 opacity-75">Please contact support if you have questions.</p>
-        </Banner>
+          <p style={{ fontSize: '13px', color: C.textMuted, marginTop: 8 }}>Contact support if you have questions.</p>
+        </div>
       )}
 
       {status === 'submitted' && (
-        <Banner color="var(--accent)" bg="#1f3a5f" border="#2a5a9f">
-          ⏳ Your application has been submitted and is awaiting review. We'll notify you of any updates.
-        </Banner>
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#1D4ED8' }}>
+            ⏳ Your application has been submitted and is awaiting assignment to a reviewer.
+          </p>
+        </div>
       )}
 
       {status === 'under_review' && (
-        <Banner color="var(--yellow)" bg="#3d2a0a" border="#6a4a10">
-          🔍 A reviewer is currently evaluating your application. This typically takes 1–2 business days.
-        </Banner>
+        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#9A3412' }}>
+            🔍 A reviewer is currently evaluating your application. This typically takes 1–2 business days.
+          </p>
+        </div>
       )}
 
       {status === 'more_info_requested' && (
-        <div
-          className="rounded-xl border p-6"
-          style={{ background: '#2a1f3d', borderColor: '#4a3a6d' }}
-        >
-          <p className="font-bold mb-2" style={{ color: '#bc8cff' }}>Additional Information Required</p>
+        <div style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: '0.75rem',
+          padding: '24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#7E22CE', marginBottom: 8 }}>
+            Additional Information Required
+          </p>
           {latestAction?.reason && (
-            <p className="text-sm mb-4" style={{ color: 'var(--text-primary)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Reviewer note: </span>
-              {latestAction.reason}
-            </p>
+            <div style={{ background: '#FFFFFF', border: '1px solid #E9D5FF', borderRadius: '0.5rem',
+              padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: C.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Reviewer Note</p>
+              <p style={{ fontSize: '14px', color: C.textPrimary }}>{latestAction.reason}</p>
+            </div>
           )}
-          <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '13px', color: '#6B21A8', marginBottom: 16 }}>
             Please update your documents and resubmit your application.
           </p>
-          <button
-            id="btn-resubmit"
-            onClick={() => navigate('/onboarding/step/3')}
-            className="px-5 py-2 rounded-xl font-bold text-sm"
-            style={{ background: '#3a2f5a', color: '#bc8cff', border: '1px solid #6a5a9a' }}
-          >
+          <button id="btn-resubmit" onClick={() => navigate('/onboarding/step/3')}
+            style={{ ...btn.primary, background: '#7C3AED' }}>
             Update Documents &amp; Resubmit →
           </button>
         </div>
       )}
 
-      {/* Review history */}
+      {/* Review History */}
       {appData?.review_actions?.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-            Review History
-          </h2>
-          <div className="space-y-2">
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+              textTransform: 'uppercase', letterSpacing: '0.05em' }}>Review History</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {appData.review_actions.map(a => (
-              <div
-                key={a.id}
-                className="flex gap-3 p-3 rounded-lg border text-sm"
-                style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
-              >
-                <span className="font-semibold capitalize" style={{ color: STATUS_CONFIG[a.action]?.text || 'var(--text-muted)' }}>
-                  {a.action.replace(/_/g, ' ')}
-                </span>
-                {a.reason && <span style={{ color: 'var(--text-muted)' }}>— {a.reason}</span>}
-                <span className="ml-auto text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{fmtDate(a.created_at)}</span>
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${ACTION_COLORS[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: ACTION_COLORS[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g,' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <button
-        onClick={refreshApp}
-        className="mt-6 text-xs px-3 py-1.5 rounded-lg border"
-        style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-      >
+      <button onClick={refreshApp}
+        style={{ ...btn.secondary, fontSize: '13px' }}>
         ↻ Refresh status
       </button>
-    </Shell>
+    </AppShell>
   );
 }
+.Groups[1].Value)styles.jsx'" ;
 
-function Shell({ onLogout, children }) {
-  return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-      <header
-        className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-      >
-        <span className="text-xl font-bold" style={{ color: 'var(--accent)' }}>Playto KYC</span>
-        <button onClick={onLogout} className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Sign out</button>
-      </header>
-      <main className="max-w-2xl mx-auto px-6 py-10">{children}</main>
-    </div>
-  );
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
 }
 
 function KV({ label, value }) {
   return (
-    <div className="text-center">
-      <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-sm font-semibold">{value}</p>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '11px', color: C.textMuted, marginBottom: 3,
+        textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '500' }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: '500', color: C.textPrimary }}>{value}</div>
     </div>
   );
 }
 
-function Banner({ color, bg, border, children }) {
+const ACTION_COLORS = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+export default function MerchantDashboard() {
+  const navigate    = useNavigate();
+  const { appData, loading, error, refreshApp } = useOnboarding();
+
+  // Redirect draft apps to onboarding
+  useEffect(() => {
+    if (!loading && appData?.status === 'draft') navigate('/onboarding/step/1', { replace: true });
+  }, [loading, appData, navigate]);
+
+  if (loading) return <Spinner />;
+
+  const status = appData?.status;
+  const cfg    = STATUS[status] || STATUS.draft;
+  const latestAction = appData?.review_actions?.[0];
+
   return (
-    <div
-      className="rounded-xl border p-5 text-sm"
-      style={{ background: bg, borderColor: border, color }}
-    >
-      {children}
+    <AppShell title="My Application">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 24 }}>{error}</div>
+      )}
+
+      {/* Status card */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '32px', textAlign: 'center', marginBottom: 20 }}>
+        <p style={{ fontSize: '11px', fontWeight: '600', color: C.textMuted,
+          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Application Status</p>
+        <StatusBadge status={status} style={{ fontSize: '15px', padding: '6px 20px', marginBottom: 20 }} />
+
+        {appData && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginTop: 8 }}>
+            <KV label="Application ID" value={`#${appData.id}`} />
+            <KV label="Submitted"      value={fmtDate(appData.submitted_at)} />
+            <KV label="Last Update"    value={fmtDate(appData.last_status_change_at)} />
+          </div>
+        )}
+      </div>
+
+      {/* Status-specific panels */}
+      {status === 'approved' && (
+        <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#16A34A', marginBottom: 6 }}>
+            🎉 Application Approved!
+          </p>
+          <p style={{ fontSize: '14px', color: '#166534' }}>
+            Your KYC has been verified. You can now start using Playto's payment services.
+          </p>
+        </div>
+      )}
+
+      {status === 'rejected' && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#E11D48', marginBottom: 6 }}>Application Rejected</p>
+          {latestAction?.reason && (
+            <p style={{ fontSize: '14px', color: '#9F1239' }}>Reason: {latestAction.reason}</p>
+          )}
+          <p style={{ fontSize: '13px', color: C.textMuted, marginTop: 8 }}>Contact support if you have questions.</p>
+        </div>
+      )}
+
+      {status === 'submitted' && (
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#1D4ED8' }}>
+            ⏳ Your application has been submitted and is awaiting assignment to a reviewer.
+          </p>
+        </div>
+      )}
+
+      {status === 'under_review' && (
+        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#9A3412' }}>
+            🔍 A reviewer is currently evaluating your application. This typically takes 1–2 business days.
+          </p>
+        </div>
+      )}
+
+      {status === 'more_info_requested' && (
+        <div style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: '0.75rem',
+          padding: '24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#7E22CE', marginBottom: 8 }}>
+            Additional Information Required
+          </p>
+          {latestAction?.reason && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E9D5FF', borderRadius: '0.5rem',
+              padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: C.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Reviewer Note</p>
+              <p style={{ fontSize: '14px', color: C.textPrimary }}>{latestAction.reason}</p>
+            </div>
+          )}
+          <p style={{ fontSize: '13px', color: '#6B21A8', marginBottom: 16 }}>
+            Please update your documents and resubmit your application.
+          </p>
+          <button id="btn-resubmit" onClick={() => navigate('/onboarding/step/3')}
+            style={{ ...btn.primary, background: '#7C3AED' }}>
+            Update Documents &amp; Resubmit →
+          </button>
+        </div>
+      )}
+
+      {/* Review History */}
+      {appData?.review_actions?.length > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+              textTransform: 'uppercase', letterSpacing: '0.05em' }}>Review History</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {appData.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${ACTION_COLORS[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: ACTION_COLORS[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g,' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button onClick={refreshApp}
+        style={{ ...btn.secondary, fontSize: '13px' }}>
+        ↻ Refresh status
+      </button>
+    </AppShell>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
+}
+
+function KV({ label, value }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '11px', color: C.textMuted, marginBottom: 3,
+        textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '500' }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: '500', color: C.textPrimary }}>{value}</div>
     </div>
   );
 }
 
-function Spinner() {
+const ACTION_COLORS = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+export default function MerchantDashboard() {
+  const navigate    = useNavigate();
+  const { appData, loading, error, refreshApp } = useOnboarding();
+
+  // Redirect draft apps to onboarding
+  useEffect(() => {
+    if (!loading && appData?.status === 'draft') navigate('/onboarding/step/1', { replace: true });
+  }, [loading, appData, navigate]);
+
+  if (loading) return <Spinner />;
+
+  const status = appData?.status;
+  const cfg    = STATUS[status] || STATUS.draft;
+  const latestAction = appData?.review_actions?.[0];
+
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-      <svg className="animate-spin w-7 h-7" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-      </svg>
+    <AppShell title="My Application">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 24 }}>{error}</div>
+      )}
+
+      {/* Status card */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '32px', textAlign: 'center', marginBottom: 20 }}>
+        <p style={{ fontSize: '11px', fontWeight: '600', color: C.textMuted,
+          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Application Status</p>
+        <StatusBadge status={status} style={{ fontSize: '15px', padding: '6px 20px', marginBottom: 20 }} />
+
+        {appData && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginTop: 8 }}>
+            <KV label="Application ID" value={`#${appData.id}`} />
+            <KV label="Submitted"      value={fmtDate(appData.submitted_at)} />
+            <KV label="Last Update"    value={fmtDate(appData.last_status_change_at)} />
+          </div>
+        )}
+      </div>
+
+      {/* Status-specific panels */}
+      {status === 'approved' && (
+        <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#16A34A', marginBottom: 6 }}>
+            🎉 Application Approved!
+          </p>
+          <p style={{ fontSize: '14px', color: '#166534' }}>
+            Your KYC has been verified. You can now start using Playto's payment services.
+          </p>
+        </div>
+      )}
+
+      {status === 'rejected' && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#E11D48', marginBottom: 6 }}>Application Rejected</p>
+          {latestAction?.reason && (
+            <p style={{ fontSize: '14px', color: '#9F1239' }}>Reason: {latestAction.reason}</p>
+          )}
+          <p style={{ fontSize: '13px', color: C.textMuted, marginTop: 8 }}>Contact support if you have questions.</p>
+        </div>
+      )}
+
+      {status === 'submitted' && (
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#1D4ED8' }}>
+            ⏳ Your application has been submitted and is awaiting assignment to a reviewer.
+          </p>
+        </div>
+      )}
+
+      {status === 'under_review' && (
+        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#9A3412' }}>
+            🔍 A reviewer is currently evaluating your application. This typically takes 1–2 business days.
+          </p>
+        </div>
+      )}
+
+      {status === 'more_info_requested' && (
+        <div style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: '0.75rem',
+          padding: '24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#7E22CE', marginBottom: 8 }}>
+            Additional Information Required
+          </p>
+          {latestAction?.reason && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E9D5FF', borderRadius: '0.5rem',
+              padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: C.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Reviewer Note</p>
+              <p style={{ fontSize: '14px', color: C.textPrimary }}>{latestAction.reason}</p>
+            </div>
+          )}
+          <p style={{ fontSize: '13px', color: '#6B21A8', marginBottom: 16 }}>
+            Please update your documents and resubmit your application.
+          </p>
+          <button id="btn-resubmit" onClick={() => navigate('/onboarding/step/3')}
+            style={{ ...btn.primary, background: '#7C3AED' }}>
+            Update Documents &amp; Resubmit →
+          </button>
+        </div>
+      )}
+
+      {/* Review History */}
+      {appData?.review_actions?.length > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+              textTransform: 'uppercase', letterSpacing: '0.05em' }}>Review History</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {appData.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${ACTION_COLORS[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: ACTION_COLORS[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g,' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button onClick={refreshApp}
+        style={{ ...btn.secondary, fontSize: '13px' }}>
+        ↻ Refresh status
+      </button>
+    </AppShell>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso));
+}
+
+function KV({ label, value }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '11px', color: C.textMuted, marginBottom: 3,
+        textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '500' }}>{label}</div>
+      <div style={{ fontSize: '14px', fontWeight: '500', color: C.textPrimary }}>{value}</div>
     </div>
+  );
+}
+
+const ACTION_COLORS = { approved: '#16A34A', rejected: '#E11D48', more_info_requested: '#A855F7' };
+
+export default function MerchantDashboard() {
+  const navigate    = useNavigate();
+  const { appData, loading, error, refreshApp } = useOnboarding();
+
+  // Redirect draft apps to onboarding
+  useEffect(() => {
+    if (!loading && appData?.status === 'draft') navigate('/onboarding/step/1', { replace: true });
+  }, [loading, appData, navigate]);
+
+  if (loading) return <Spinner />;
+
+  const status = appData?.status;
+  const cfg    = STATUS[status] || STATUS.draft;
+  const latestAction = appData?.review_actions?.[0];
+
+  return (
+    <AppShell title="My Application">
+      {error && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+          padding: '12px 16px', fontSize: '13px', color: '#E11D48', marginBottom: 24 }}>{error}</div>
+      )}
+
+      {/* Status card */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '32px', textAlign: 'center', marginBottom: 20 }}>
+        <p style={{ fontSize: '11px', fontWeight: '600', color: C.textMuted,
+          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Application Status</p>
+        <StatusBadge status={status} style={{ fontSize: '15px', padding: '6px 20px', marginBottom: 20 }} />
+
+        {appData && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginTop: 8 }}>
+            <KV label="Application ID" value={`#${appData.id}`} />
+            <KV label="Submitted"      value={fmtDate(appData.submitted_at)} />
+            <KV label="Last Update"    value={fmtDate(appData.last_status_change_at)} />
+          </div>
+        )}
+      </div>
+
+      {/* Status-specific panels */}
+      {status === 'approved' && (
+        <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#16A34A', marginBottom: 6 }}>
+            🎉 Application Approved!
+          </p>
+          <p style={{ fontSize: '14px', color: '#166534' }}>
+            Your KYC has been verified. You can now start using Playto's payment services.
+          </p>
+        </div>
+      )}
+
+      {status === 'rejected' && (
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#E11D48', marginBottom: 6 }}>Application Rejected</p>
+          {latestAction?.reason && (
+            <p style={{ fontSize: '14px', color: '#9F1239' }}>Reason: {latestAction.reason}</p>
+          )}
+          <p style={{ fontSize: '13px', color: C.textMuted, marginTop: 8 }}>Contact support if you have questions.</p>
+        </div>
+      )}
+
+      {status === 'submitted' && (
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#1D4ED8' }}>
+            ⏳ Your application has been submitted and is awaiting assignment to a reviewer.
+          </p>
+        </div>
+      )}
+
+      {status === 'under_review' && (
+        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '0.75rem',
+          padding: '20px 24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '14px', color: '#9A3412' }}>
+            🔍 A reviewer is currently evaluating your application. This typically takes 1–2 business days.
+          </p>
+        </div>
+      )}
+
+      {status === 'more_info_requested' && (
+        <div style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: '0.75rem',
+          padding: '24px', marginBottom: 20 }}>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#7E22CE', marginBottom: 8 }}>
+            Additional Information Required
+          </p>
+          {latestAction?.reason && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E9D5FF', borderRadius: '0.5rem',
+              padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: C.textMuted,
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Reviewer Note</p>
+              <p style={{ fontSize: '14px', color: C.textPrimary }}>{latestAction.reason}</p>
+            </div>
+          )}
+          <p style={{ fontSize: '13px', color: '#6B21A8', marginBottom: 16 }}>
+            Please update your documents and resubmit your application.
+          </p>
+          <button id="btn-resubmit" onClick={() => navigate('/onboarding/step/3')}
+            style={{ ...btn.primary, background: '#7C3AED' }}>
+            Update Documents &amp; Resubmit →
+          </button>
+        </div>
+      )}
+
+      {/* Review History */}
+      {appData?.review_actions?.length > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 20 }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: C.textSecondary,
+              textTransform: 'uppercase', letterSpacing: '0.05em' }}>Review History</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {appData.review_actions.map(a => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '12px 14px',
+                background: C.bg, borderRadius: '0.5rem', border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${ACTION_COLORS[a.action] || C.textMuted}` }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+                    color: ACTION_COLORS[a.action] || C.textSecondary }}>
+                    {a.action.replace(/_/g,' ')}
+                  </span>
+                  {a.reason && <p style={{ fontSize: '13px', color: C.textPrimary, marginTop: 4 }}>{a.reason}</p>}
+                </div>
+                <span style={{ fontSize: '12px', color: C.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button onClick={refreshApp}
+        style={{ ...btn.secondary, fontSize: '13px' }}>
+        ↻ Refresh status
+      </button>
+    </AppShell>
   );
 }

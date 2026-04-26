@@ -1,23 +1,33 @@
-/**
- * OnboardingStep1.jsx — Personal Details
- * Route: /onboarding/step/1
- */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, inp, lbl, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, inp, lbl, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, inp, lbl, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, inp, lbl, btn, Spinner } from '../../styles';
 
 export default function OnboardingStep1() {
   const navigate = useNavigate();
   const { appId, appData, loading: appLoading } = useOnboarding();
-
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form,   setForm]   = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
+  const [saved,  setSaved]  = useState(false);
+  const [error,  setError]  = useState('');
 
-  // Pre-fill from existing data
   useEffect(() => {
     if (appData?.personal_detail) {
       const pd = appData.personal_detail;
@@ -25,24 +35,18 @@ export default function OnboardingStep1() {
     }
   }, [appData]);
 
-  function set(field, value) {
-    setForm(f => ({ ...f, [field]: value }));
-    setSaved(false);
-  }
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })); setSaved(false); }
 
   async function save() {
     if (!appId) return;
-    setSaving(true);
-    setError('');
+    setSaving(true); setError('');
     try {
       const method = appData?.personal_detail ? 'put' : 'post';
       await api[method](`/applications/${appId}/personal-detail/`, form);
       setSaved(true);
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.detail || 'Save failed');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleNext() {
@@ -54,103 +58,295 @@ export default function OnboardingStep1() {
 
   return (
     <OnboardingLayout currentStep={1}>
-      <h1 className="text-xl font-bold mb-1">Personal Details</h1>
-      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Personal Details
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
         Tell us about yourself. This information will be verified during KYC review.
       </p>
 
-      <div className="space-y-5">
-        <Field label="Full Name" id="pd-name">
-          <input
-            id="pd-name"
-            type="text"
-            placeholder="Jane Smith"
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
-
-        <Field label="Email Address" id="pd-email">
-          <input
-            id="pd-email"
-            type="email"
-            placeholder="jane@example.com"
-            value={form.email}
-            onChange={e => set('email', e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
-
-        <Field label="Phone Number" id="pd-phone">
-          <input
-            id="pd-phone"
-            type="tel"
-            placeholder="+91-9876543210"
-            value={form.phone}
-            onChange={e => set('phone', e.target.value)}
-            style={inputStyle}
-          />
-        </Field>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {[
+          { id: 'pd-name',  field: 'name',  label: 'Full Name',       type: 'text',  ph: 'Jane Smith' },
+          { id: 'pd-email', field: 'email', label: 'Email Address',   type: 'email', ph: 'jane@example.com' },
+          { id: 'pd-phone', field: 'phone', label: 'Phone Number',    type: 'tel',   ph: '+91-9876543210' },
+        ].map(({ id, field, label, type, ph }) => (
+          <div key={field}>
+            <label htmlFor={id} style={lbl}>{label}</label>
+            <input id={id} type={type} placeholder={ph} value={form[field]}
+              onChange={e => set(field, e.target.value)} style={inp} />
+          </div>
+        ))}
       </div>
 
-      {error && <p className="mt-4 text-xs" style={{ color: 'var(--red)' }}>{error}</p>}
-      {saved && <p className="mt-4 text-xs font-medium" style={{ color: 'var(--green)' }}>✓ Saved successfully</p>}
+      {error && <p style={{ marginTop: 14, fontSize: '13px', color: '#E11D48' }}>{error}</p>}
+      {saved && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: '13px', color: '#16A34A', fontWeight: '500' }}>
+          <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#F0FDF4',
+            border: '1px solid #86EFAC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px' }}>✓</span>
+          Saved successfully
+        </div>
+      )}
 
-      <div className="flex gap-3 mt-8">
-        <button onClick={save} disabled={saving} style={secondaryBtn}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={save} disabled={saving} style={{ ...btn.secondary, flex: 1 }}>
           {saving ? 'Saving…' : 'Save Progress'}
         </button>
-        <button onClick={handleNext} disabled={saving} style={primaryBtn}>
-          Next →
+        <button onClick={handleNext} disabled={saving} style={{ ...btn.primary, flex: 2 }}>
+          Continue →
         </button>
       </div>
     </OnboardingLayout>
   );
 }
+.Groups[1].Value)styles.jsx'" ;
 
-function Field({ label, id, children }) {
+export default function OnboardingStep1() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [form,   setForm]   = useState({ name: '', email: '', phone: '' });
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [error,  setError]  = useState('');
+
+  useEffect(() => {
+    if (appData?.personal_detail) {
+      const pd = appData.personal_detail;
+      setForm({ name: pd.name || '', email: pd.email || '', phone: pd.phone || '' });
+    }
+  }, [appData]);
+
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })); setSaved(false); }
+
+  async function save() {
+    if (!appId) return;
+    setSaving(true); setError('');
+    try {
+      const method = appData?.personal_detail ? 'put' : 'post';
+      await api[method](`/applications/${appId}/personal-detail/`, form);
+      setSaved(true);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.detail || 'Save failed');
+    } finally { setSaving(false); }
+  }
+
+  async function handleNext() {
+    await save();
+    if (!error) navigate('/onboarding/step/2');
+  }
+
+  if (appLoading) return <Spinner />;
+
   return (
-    <div>
-      <label htmlFor={id} className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
-        {label}
-      </label>
-      {children}
-    </div>
+    <OnboardingLayout currentStep={1}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Personal Details
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Tell us about yourself. This information will be verified during KYC review.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {[
+          { id: 'pd-name',  field: 'name',  label: 'Full Name',       type: 'text',  ph: 'Jane Smith' },
+          { id: 'pd-email', field: 'email', label: 'Email Address',   type: 'email', ph: 'jane@example.com' },
+          { id: 'pd-phone', field: 'phone', label: 'Phone Number',    type: 'tel',   ph: '+91-9876543210' },
+        ].map(({ id, field, label, type, ph }) => (
+          <div key={field}>
+            <label htmlFor={id} style={lbl}>{label}</label>
+            <input id={id} type={type} placeholder={ph} value={form[field]}
+              onChange={e => set(field, e.target.value)} style={inp} />
+          </div>
+        ))}
+      </div>
+
+      {error && <p style={{ marginTop: 14, fontSize: '13px', color: '#E11D48' }}>{error}</p>}
+      {saved && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: '13px', color: '#16A34A', fontWeight: '500' }}>
+          <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#F0FDF4',
+            border: '1px solid #86EFAC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px' }}>✓</span>
+          Saved successfully
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={save} disabled={saving} style={{ ...btn.secondary, flex: 1 }}>
+          {saving ? 'Saving…' : 'Save Progress'}
+        </button>
+        <button onClick={handleNext} disabled={saving} style={{ ...btn.primary, flex: 2 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
   );
 }
+.Groups[1].Value)styles.jsx'" ;
 
-function Spinner() {
+export default function OnboardingStep1() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [form,   setForm]   = useState({ name: '', email: '', phone: '' });
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [error,  setError]  = useState('');
+
+  useEffect(() => {
+    if (appData?.personal_detail) {
+      const pd = appData.personal_detail;
+      setForm({ name: pd.name || '', email: pd.email || '', phone: pd.phone || '' });
+    }
+  }, [appData]);
+
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })); setSaved(false); }
+
+  async function save() {
+    if (!appId) return;
+    setSaving(true); setError('');
+    try {
+      const method = appData?.personal_detail ? 'put' : 'post';
+      await api[method](`/applications/${appId}/personal-detail/`, form);
+      setSaved(true);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.detail || 'Save failed');
+    } finally { setSaving(false); }
+  }
+
+  async function handleNext() {
+    await save();
+    if (!error) navigate('/onboarding/step/2');
+  }
+
+  if (appLoading) return <Spinner />;
+
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-      <svg className="animate-spin w-7 h-7" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-      </svg>
-    </div>
+    <OnboardingLayout currentStep={1}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Personal Details
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Tell us about yourself. This information will be verified during KYC review.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {[
+          { id: 'pd-name',  field: 'name',  label: 'Full Name',       type: 'text',  ph: 'Jane Smith' },
+          { id: 'pd-email', field: 'email', label: 'Email Address',   type: 'email', ph: 'jane@example.com' },
+          { id: 'pd-phone', field: 'phone', label: 'Phone Number',    type: 'tel',   ph: '+91-9876543210' },
+        ].map(({ id, field, label, type, ph }) => (
+          <div key={field}>
+            <label htmlFor={id} style={lbl}>{label}</label>
+            <input id={id} type={type} placeholder={ph} value={form[field]}
+              onChange={e => set(field, e.target.value)} style={inp} />
+          </div>
+        ))}
+      </div>
+
+      {error && <p style={{ marginTop: 14, fontSize: '13px', color: '#E11D48' }}>{error}</p>}
+      {saved && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: '13px', color: '#16A34A', fontWeight: '500' }}>
+          <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#F0FDF4',
+            border: '1px solid #86EFAC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px' }}>✓</span>
+          Saved successfully
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={save} disabled={saving} style={{ ...btn.secondary, flex: 1 }}>
+          {saving ? 'Saving…' : 'Save Progress'}
+        </button>
+        <button onClick={handleNext} disabled={saving} style={{ ...btn.primary, flex: 2 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
   );
 }
+.Groups[1].Value)styles.jsx'" ;
 
-const inputStyle = {
-  display: 'block', width: '100%',
-  padding: '0.5rem 0.75rem', borderRadius: '0.5rem',
-  fontSize: '0.875rem', outline: 'none',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  color: 'var(--text-primary)',
-};
+export default function OnboardingStep1() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [form,   setForm]   = useState({ name: '', email: '', phone: '' });
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [error,  setError]  = useState('');
 
-const primaryBtn = {
-  flex: 1, padding: '0.625rem 1rem',
-  borderRadius: '0.75rem', fontWeight: '600',
-  fontSize: '0.875rem', cursor: 'pointer',
-  background: 'var(--accent)', color: '#0d1117', border: 'none',
-};
+  useEffect(() => {
+    if (appData?.personal_detail) {
+      const pd = appData.personal_detail;
+      setForm({ name: pd.name || '', email: pd.email || '', phone: pd.phone || '' });
+    }
+  }, [appData]);
 
-const secondaryBtn = {
-  flex: 1, padding: '0.625rem 1rem',
-  borderRadius: '0.75rem', fontWeight: '600',
-  fontSize: '0.875rem', cursor: 'pointer',
-  background: 'var(--bg-elevated)', color: 'var(--text-muted)',
-  border: '1px solid var(--border)',
-};
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })); setSaved(false); }
+
+  async function save() {
+    if (!appId) return;
+    setSaving(true); setError('');
+    try {
+      const method = appData?.personal_detail ? 'put' : 'post';
+      await api[method](`/applications/${appId}/personal-detail/`, form);
+      setSaved(true);
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.detail || 'Save failed');
+    } finally { setSaving(false); }
+  }
+
+  async function handleNext() {
+    await save();
+    if (!error) navigate('/onboarding/step/2');
+  }
+
+  if (appLoading) return <Spinner />;
+
+  return (
+    <OnboardingLayout currentStep={1}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Personal Details
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Tell us about yourself. This information will be verified during KYC review.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {[
+          { id: 'pd-name',  field: 'name',  label: 'Full Name',       type: 'text',  ph: 'Jane Smith' },
+          { id: 'pd-email', field: 'email', label: 'Email Address',   type: 'email', ph: 'jane@example.com' },
+          { id: 'pd-phone', field: 'phone', label: 'Phone Number',    type: 'tel',   ph: '+91-9876543210' },
+        ].map(({ id, field, label, type, ph }) => (
+          <div key={field}>
+            <label htmlFor={id} style={lbl}>{label}</label>
+            <input id={id} type={type} placeholder={ph} value={form[field]}
+              onChange={e => set(field, e.target.value)} style={inp} />
+          </div>
+        ))}
+      </div>
+
+      {error && <p style={{ marginTop: 14, fontSize: '13px', color: '#E11D48' }}>{error}</p>}
+      {saved && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: '13px', color: '#16A34A', fontWeight: '500' }}>
+          <span style={{ width: 16, height: 16, borderRadius: '50%', background: '#F0FDF4',
+            border: '1px solid #86EFAC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px' }}>✓</span>
+          Saved successfully
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={save} disabled={saving} style={{ ...btn.secondary, flex: 1 }}>
+          {saving ? 'Saving…' : 'Save Progress'}
+        </button>
+        <button onClick={handleNext} disabled={saving} style={{ ...btn.primary, flex: 2 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
+  );
+}

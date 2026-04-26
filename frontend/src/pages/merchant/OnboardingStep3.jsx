@@ -1,198 +1,612 @@
-/**
- * OnboardingStep3.jsx — Document Upload
- * Route: /onboarding/step/3
- *
- * Client-side validation:
- * - Rejects files > 5 MB before sending to server
- * - Checks file.type (MIME) against allowed list before sending to server
- * Server also validates with magic bytes — client check is just UX.
- */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, btn, Spinner }  "from '$(import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingLayout from '../../components/OnboardingLayout';
+import { C, btn, Spinner } from '../../styles';
 
 const DOC_SLOTS = [
-  { key: 'pan', label: 'PAN Card', hint: 'PDF, JPG, or PNG — max 5 MB' },
-  { key: 'aadhaar', label: 'Aadhaar Card', hint: 'PDF, JPG, or PNG — max 5 MB' },
-  { key: 'bank_statement', label: 'Bank Statement', hint: 'PDF, JPG, or PNG — max 5 MB' },
+  { key: 'pan',            label: 'PAN Card',        hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'aadhaar',        label: 'Aadhaar Card',    hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'bank_statement', label: 'Bank Statement',  hint: 'PDF, JPG or PNG — max 5 MB' },
 ];
 
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES    = 5 * 1024 * 1024;
+
+function UploadIcon() {
+  return (
+    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+    </svg>
+  );
+}
 
 function validateFile(file) {
-  if (file.size > MAX_BYTES) {
-    return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 5 MB.`;
-  }
-  if (!ALLOWED_MIME.includes(file.type)) {
-    return `Invalid file type (${file.type || 'unknown'}). Only PDF, JPG, and PNG are accepted.`;
-  }
+  if (file.size > MAX_BYTES)            return `File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 5 MB.`;
+  if (!ALLOWED_MIME.includes(file.type)) return `Invalid type (${file.type || 'unknown'}). Only PDF, JPG, PNG allowed.`;
   return null;
 }
 
 export default function OnboardingStep3() {
   const navigate = useNavigate();
-  const { appId, appData, loading: appLoading, refreshApp } = useOnboarding();
-
-  // Track: { [doc_type]: { uploaded: doc_object | null, uploading, error } }
+  const { appId, appData, loading: appLoading } = useOnboarding();
   const [slots, setSlots] = useState(() =>
     Object.fromEntries(DOC_SLOTS.map(d => [d.key, { uploaded: null, uploading: false, error: '' }]))
   );
 
-  // Populate from existing documents (pick latest per type)
   useEffect(() => {
     if (!appData?.documents) return;
     const latest = {};
     appData.documents.forEach(doc => {
-      if (!latest[doc.doc_type] || doc.id > latest[doc.doc_type].id) {
-        latest[doc.doc_type] = doc;
-      }
+      if (!latest[doc.doc_type] || doc.id > latest[doc.doc_type].id) latest[doc.doc_type] = doc;
     });
     setSlots(prev => {
       const next = { ...prev };
-      DOC_SLOTS.forEach(d => {
-        next[d.key] = { ...next[d.key], uploaded: latest[d.key] || null };
-      });
+      DOC_SLOTS.forEach(d => { next[d.key] = { ...next[d.key], uploaded: latest[d.key] || null }; });
       return next;
     });
   }, [appData]);
 
-  function setSlot(key, patch) {
-    setSlots(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
-  }
+  function setSlot(key, patch) { setSlots(prev => ({ ...prev, [key]: { ...prev[key], ...patch } })); }
 
-  async function handleFileChange(key, file) {
+  async function handleFile(key, file) {
     if (!file) return;
-
-    // Client-side validation first
-    const validationErr = validateFile(file);
-    if (validationErr) {
-      setSlot(key, { error: validationErr });
-      return;
-    }
-
+    const err = validateFile(file);
+    if (err) { setSlot(key, { error: err }); return; }
     setSlot(key, { uploading: true, error: '' });
     try {
-      const formData = new FormData();
-      formData.append('doc_type', key);
-      formData.append('file', file);
-      const res = await api.post(`/applications/${appId}/documents/`, formData, {
+      const fd = new FormData(); fd.append('doc_type', key); fd.append('file', file);
+      const res = await api.post(`/applications/${appId}/documents/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setSlot(key, { uploaded: res.data, uploading: false });
     } catch (err) {
-      const msg = err.response?.data?.error || err.response?.data?.detail || 'Upload failed';
-      setSlot(key, { error: msg, uploading: false });
+      setSlot(key, { error: err.response?.data?.error || 'Upload failed', uploading: false });
     }
   }
 
   const atLeastOne = DOC_SLOTS.some(d => slots[d.key].uploaded);
-
   if (appLoading) return <Spinner />;
 
   return (
     <OnboardingLayout currentStep={3}>
-      <h1 className="text-xl font-bold mb-1">Upload Documents</h1>
-      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-        Upload at least one document. Accepted formats: PDF, JPG, PNG (max 5 MB each).
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Upload Documents
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Upload at least one document. Accepted: PDF, JPG, PNG (max 5 MB each).
       </p>
 
-      <div className="space-y-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {DOC_SLOTS.map(({ key, label, hint }) => {
           const slot = slots[key];
           return (
-            <div
-              key={key}
-              className="rounded-xl border p-4"
-              style={{ borderColor: slot.uploaded ? 'var(--green)' : 'var(--border)', background: 'var(--bg-elevated)' }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold">{label}</span>
-                {slot.uploaded && (
-                  <span className="text-xs font-medium" style={{ color: 'var(--green)' }}>✓ Uploaded</span>
+            <label key={key} htmlFor={`doc-${key}`} style={{ cursor: 'pointer', display: 'block' }}>
+              <input id={`doc-${key}`} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                className="sr-only" style={{ display: 'none' }} disabled={slot.uploading}
+                onChange={e => handleFile(key, e.target.files[0])} />
+
+              <div style={{
+                border: `2px dashed ${slot.uploaded ? '#86EFAC' : slot.error ? '#FECDD3' : '#CBD5E1'}`,
+                borderRadius: '0.75rem', background: slot.uploaded ? '#F0FDF4' : C.bg,
+                padding: '20px', transition: 'all 150ms',
+              }}>
+                {slot.uploaded ? (
+                  /* Uploaded state */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#DCFCE7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '16px', flexShrink: 0 }}>✓</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A' }}>{label} — Uploaded</div>
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        {slot.uploaded.file?.split('/').pop() || 'Document on file'} · Click to replace
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state */
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <UploadIcon />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: C.textPrimary, marginBottom: 2 }}>
+                      {slot.uploading ? 'Uploading…' : label}
+                    </div>
+                    {!slot.uploading && (
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        Click to upload &nbsp;<span style={{ color: C.primary }}>or drag and drop</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: C.textMuted, marginTop: 4 }}>{hint}</div>
+                  </div>
+                )}
+
+                {slot.error && (
+                  <div style={{ marginTop: 10, fontSize: '12px', color: '#E11D48',
+                    background: '#FFF1F2', borderRadius: '0.375rem', padding: '6px 10px' }}>
+                    ⚠ {slot.error}
+                  </div>
                 )}
               </div>
-
-              {slot.uploaded && (
-                <p className="text-xs mb-2 truncate" style={{ color: 'var(--text-muted)' }}>
-                  {slot.uploaded.file?.split('/').pop() || 'Document on file'}
-                </p>
-              )}
-
-              <label
-                htmlFor={`doc-${key}`}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <span
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                  style={{
-                    background: slot.uploading ? 'var(--bg-surface)' : '#1f3a5f',
-                    color: slot.uploading ? 'var(--text-muted)' : 'var(--accent)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  {slot.uploading ? 'Uploading…' : slot.uploaded ? 'Replace file' : 'Choose file'}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{hint}</span>
-              </label>
-              <input
-                id={`doc-${key}`}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="hidden"
-                disabled={slot.uploading}
-                onChange={e => handleFileChange(key, e.target.files[0])}
-              />
-
-              {slot.error && (
-                <p className="mt-2 text-xs" style={{ color: 'var(--red)' }}>⚠ {slot.error}</p>
-              )}
-            </div>
+            </label>
           );
         })}
       </div>
 
       {!atLeastOne && (
-        <p className="mt-4 text-xs" style={{ color: 'var(--yellow)' }}>
+        <p style={{ marginTop: 16, fontSize: '13px', color: '#F97316', fontWeight: '500' }}>
           ⚠ Upload at least one document to continue.
         </p>
       )}
 
-      <div className="flex gap-3 mt-8">
-        <button onClick={() => navigate('/onboarding/step/2')} style={backBtn}>← Back</button>
-        <button
-          onClick={() => navigate('/onboarding/review')}
-          disabled={!atLeastOne}
-          style={{ ...primaryBtn, opacity: atLeastOne ? 1 : 0.4 }}
-        >
-          Next →
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={() => navigate('/onboarding/step/2')} style={btn.ghost}>← Back</button>
+        <button onClick={() => navigate('/onboarding/review')} disabled={!atLeastOne}
+          style={{ ...btn.primary, flex: 1, opacity: atLeastOne ? 1 : 0.4 }}>
+          Continue →
         </button>
       </div>
     </OnboardingLayout>
   );
 }
+.Groups[1].Value)styles.jsx'" ;
 
-function Spinner() {
+const DOC_SLOTS = [
+  { key: 'pan',            label: 'PAN Card',        hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'aadhaar',        label: 'Aadhaar Card',    hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'bank_statement', label: 'Bank Statement',  hint: 'PDF, JPG or PNG — max 5 MB' },
+];
+
+const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_BYTES    = 5 * 1024 * 1024;
+
+function UploadIcon() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-      <svg className="animate-spin w-7 h-7" fill="none" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-      </svg>
-    </div>
+    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+    </svg>
   );
 }
 
-const primaryBtn = {
-  flex: 1, padding: '0.625rem 1rem', borderRadius: '0.75rem',
-  fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer',
-  background: 'var(--accent)', color: '#0d1117', border: 'none',
-};
-const backBtn = {
-  padding: '0.625rem 1rem', borderRadius: '0.75rem',
-  fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer',
-  background: 'transparent', color: 'var(--text-muted)',
-  border: '1px solid var(--border)',
-};
+function validateFile(file) {
+  if (file.size > MAX_BYTES)            return `File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 5 MB.`;
+  if (!ALLOWED_MIME.includes(file.type)) return `Invalid type (${file.type || 'unknown'}). Only PDF, JPG, PNG allowed.`;
+  return null;
+}
+
+export default function OnboardingStep3() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [slots, setSlots] = useState(() =>
+    Object.fromEntries(DOC_SLOTS.map(d => [d.key, { uploaded: null, uploading: false, error: '' }]))
+  );
+
+  useEffect(() => {
+    if (!appData?.documents) return;
+    const latest = {};
+    appData.documents.forEach(doc => {
+      if (!latest[doc.doc_type] || doc.id > latest[doc.doc_type].id) latest[doc.doc_type] = doc;
+    });
+    setSlots(prev => {
+      const next = { ...prev };
+      DOC_SLOTS.forEach(d => { next[d.key] = { ...next[d.key], uploaded: latest[d.key] || null }; });
+      return next;
+    });
+  }, [appData]);
+
+  function setSlot(key, patch) { setSlots(prev => ({ ...prev, [key]: { ...prev[key], ...patch } })); }
+
+  async function handleFile(key, file) {
+    if (!file) return;
+    const err = validateFile(file);
+    if (err) { setSlot(key, { error: err }); return; }
+    setSlot(key, { uploading: true, error: '' });
+    try {
+      const fd = new FormData(); fd.append('doc_type', key); fd.append('file', file);
+      const res = await api.post(`/applications/${appId}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setSlot(key, { uploaded: res.data, uploading: false });
+    } catch (err) {
+      setSlot(key, { error: err.response?.data?.error || 'Upload failed', uploading: false });
+    }
+  }
+
+  const atLeastOne = DOC_SLOTS.some(d => slots[d.key].uploaded);
+  if (appLoading) return <Spinner />;
+
+  return (
+    <OnboardingLayout currentStep={3}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Upload Documents
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Upload at least one document. Accepted: PDF, JPG, PNG (max 5 MB each).
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {DOC_SLOTS.map(({ key, label, hint }) => {
+          const slot = slots[key];
+          return (
+            <label key={key} htmlFor={`doc-${key}`} style={{ cursor: 'pointer', display: 'block' }}>
+              <input id={`doc-${key}`} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                className="sr-only" style={{ display: 'none' }} disabled={slot.uploading}
+                onChange={e => handleFile(key, e.target.files[0])} />
+
+              <div style={{
+                border: `2px dashed ${slot.uploaded ? '#86EFAC' : slot.error ? '#FECDD3' : '#CBD5E1'}`,
+                borderRadius: '0.75rem', background: slot.uploaded ? '#F0FDF4' : C.bg,
+                padding: '20px', transition: 'all 150ms',
+              }}>
+                {slot.uploaded ? (
+                  /* Uploaded state */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#DCFCE7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '16px', flexShrink: 0 }}>✓</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A' }}>{label} — Uploaded</div>
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        {slot.uploaded.file?.split('/').pop() || 'Document on file'} · Click to replace
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state */
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <UploadIcon />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: C.textPrimary, marginBottom: 2 }}>
+                      {slot.uploading ? 'Uploading…' : label}
+                    </div>
+                    {!slot.uploading && (
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        Click to upload &nbsp;<span style={{ color: C.primary }}>or drag and drop</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: C.textMuted, marginTop: 4 }}>{hint}</div>
+                  </div>
+                )}
+
+                {slot.error && (
+                  <div style={{ marginTop: 10, fontSize: '12px', color: '#E11D48',
+                    background: '#FFF1F2', borderRadius: '0.375rem', padding: '6px 10px' }}>
+                    ⚠ {slot.error}
+                  </div>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {!atLeastOne && (
+        <p style={{ marginTop: 16, fontSize: '13px', color: '#F97316', fontWeight: '500' }}>
+          ⚠ Upload at least one document to continue.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={() => navigate('/onboarding/step/2')} style={btn.ghost}>← Back</button>
+        <button onClick={() => navigate('/onboarding/review')} disabled={!atLeastOne}
+          style={{ ...btn.primary, flex: 1, opacity: atLeastOne ? 1 : 0.4 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+const DOC_SLOTS = [
+  { key: 'pan',            label: 'PAN Card',        hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'aadhaar',        label: 'Aadhaar Card',    hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'bank_statement', label: 'Bank Statement',  hint: 'PDF, JPG or PNG — max 5 MB' },
+];
+
+const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_BYTES    = 5 * 1024 * 1024;
+
+function UploadIcon() {
+  return (
+    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+    </svg>
+  );
+}
+
+function validateFile(file) {
+  if (file.size > MAX_BYTES)            return `File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 5 MB.`;
+  if (!ALLOWED_MIME.includes(file.type)) return `Invalid type (${file.type || 'unknown'}). Only PDF, JPG, PNG allowed.`;
+  return null;
+}
+
+export default function OnboardingStep3() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [slots, setSlots] = useState(() =>
+    Object.fromEntries(DOC_SLOTS.map(d => [d.key, { uploaded: null, uploading: false, error: '' }]))
+  );
+
+  useEffect(() => {
+    if (!appData?.documents) return;
+    const latest = {};
+    appData.documents.forEach(doc => {
+      if (!latest[doc.doc_type] || doc.id > latest[doc.doc_type].id) latest[doc.doc_type] = doc;
+    });
+    setSlots(prev => {
+      const next = { ...prev };
+      DOC_SLOTS.forEach(d => { next[d.key] = { ...next[d.key], uploaded: latest[d.key] || null }; });
+      return next;
+    });
+  }, [appData]);
+
+  function setSlot(key, patch) { setSlots(prev => ({ ...prev, [key]: { ...prev[key], ...patch } })); }
+
+  async function handleFile(key, file) {
+    if (!file) return;
+    const err = validateFile(file);
+    if (err) { setSlot(key, { error: err }); return; }
+    setSlot(key, { uploading: true, error: '' });
+    try {
+      const fd = new FormData(); fd.append('doc_type', key); fd.append('file', file);
+      const res = await api.post(`/applications/${appId}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setSlot(key, { uploaded: res.data, uploading: false });
+    } catch (err) {
+      setSlot(key, { error: err.response?.data?.error || 'Upload failed', uploading: false });
+    }
+  }
+
+  const atLeastOne = DOC_SLOTS.some(d => slots[d.key].uploaded);
+  if (appLoading) return <Spinner />;
+
+  return (
+    <OnboardingLayout currentStep={3}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Upload Documents
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Upload at least one document. Accepted: PDF, JPG, PNG (max 5 MB each).
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {DOC_SLOTS.map(({ key, label, hint }) => {
+          const slot = slots[key];
+          return (
+            <label key={key} htmlFor={`doc-${key}`} style={{ cursor: 'pointer', display: 'block' }}>
+              <input id={`doc-${key}`} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                className="sr-only" style={{ display: 'none' }} disabled={slot.uploading}
+                onChange={e => handleFile(key, e.target.files[0])} />
+
+              <div style={{
+                border: `2px dashed ${slot.uploaded ? '#86EFAC' : slot.error ? '#FECDD3' : '#CBD5E1'}`,
+                borderRadius: '0.75rem', background: slot.uploaded ? '#F0FDF4' : C.bg,
+                padding: '20px', transition: 'all 150ms',
+              }}>
+                {slot.uploaded ? (
+                  /* Uploaded state */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#DCFCE7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '16px', flexShrink: 0 }}>✓</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A' }}>{label} — Uploaded</div>
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        {slot.uploaded.file?.split('/').pop() || 'Document on file'} · Click to replace
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state */
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <UploadIcon />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: C.textPrimary, marginBottom: 2 }}>
+                      {slot.uploading ? 'Uploading…' : label}
+                    </div>
+                    {!slot.uploading && (
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        Click to upload &nbsp;<span style={{ color: C.primary }}>or drag and drop</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: C.textMuted, marginTop: 4 }}>{hint}</div>
+                  </div>
+                )}
+
+                {slot.error && (
+                  <div style={{ marginTop: 10, fontSize: '12px', color: '#E11D48',
+                    background: '#FFF1F2', borderRadius: '0.375rem', padding: '6px 10px' }}>
+                    ⚠ {slot.error}
+                  </div>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {!atLeastOne && (
+        <p style={{ marginTop: 16, fontSize: '13px', color: '#F97316', fontWeight: '500' }}>
+          ⚠ Upload at least one document to continue.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={() => navigate('/onboarding/step/2')} style={btn.ghost}>← Back</button>
+        <button onClick={() => navigate('/onboarding/review')} disabled={!atLeastOne}
+          style={{ ...btn.primary, flex: 1, opacity: atLeastOne ? 1 : 0.4 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
+  );
+}
+.Groups[1].Value)styles.jsx'" ;
+
+const DOC_SLOTS = [
+  { key: 'pan',            label: 'PAN Card',        hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'aadhaar',        label: 'Aadhaar Card',    hint: 'PDF, JPG or PNG — max 5 MB' },
+  { key: 'bank_statement', label: 'Bank Statement',  hint: 'PDF, JPG or PNG — max 5 MB' },
+];
+
+const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_BYTES    = 5 * 1024 * 1024;
+
+function UploadIcon() {
+  return (
+    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth="1.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+    </svg>
+  );
+}
+
+function validateFile(file) {
+  if (file.size > MAX_BYTES)            return `File too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 5 MB.`;
+  if (!ALLOWED_MIME.includes(file.type)) return `Invalid type (${file.type || 'unknown'}). Only PDF, JPG, PNG allowed.`;
+  return null;
+}
+
+export default function OnboardingStep3() {
+  const navigate = useNavigate();
+  const { appId, appData, loading: appLoading } = useOnboarding();
+  const [slots, setSlots] = useState(() =>
+    Object.fromEntries(DOC_SLOTS.map(d => [d.key, { uploaded: null, uploading: false, error: '' }]))
+  );
+
+  useEffect(() => {
+    if (!appData?.documents) return;
+    const latest = {};
+    appData.documents.forEach(doc => {
+      if (!latest[doc.doc_type] || doc.id > latest[doc.doc_type].id) latest[doc.doc_type] = doc;
+    });
+    setSlots(prev => {
+      const next = { ...prev };
+      DOC_SLOTS.forEach(d => { next[d.key] = { ...next[d.key], uploaded: latest[d.key] || null }; });
+      return next;
+    });
+  }, [appData]);
+
+  function setSlot(key, patch) { setSlots(prev => ({ ...prev, [key]: { ...prev[key], ...patch } })); }
+
+  async function handleFile(key, file) {
+    if (!file) return;
+    const err = validateFile(file);
+    if (err) { setSlot(key, { error: err }); return; }
+    setSlot(key, { uploading: true, error: '' });
+    try {
+      const fd = new FormData(); fd.append('doc_type', key); fd.append('file', file);
+      const res = await api.post(`/applications/${appId}/documents/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setSlot(key, { uploaded: res.data, uploading: false });
+    } catch (err) {
+      setSlot(key, { error: err.response?.data?.error || 'Upload failed', uploading: false });
+    }
+  }
+
+  const atLeastOne = DOC_SLOTS.some(d => slots[d.key].uploaded);
+  if (appLoading) return <Spinner />;
+
+  return (
+    <OnboardingLayout currentStep={3}>
+      <h1 style={{ fontSize: '20px', fontWeight: '600', color: C.textPrimary, marginBottom: 6 }}>
+        Upload Documents
+      </h1>
+      <p style={{ fontSize: '14px', color: C.textSecondary, marginBottom: 28 }}>
+        Upload at least one document. Accepted: PDF, JPG, PNG (max 5 MB each).
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {DOC_SLOTS.map(({ key, label, hint }) => {
+          const slot = slots[key];
+          return (
+            <label key={key} htmlFor={`doc-${key}`} style={{ cursor: 'pointer', display: 'block' }}>
+              <input id={`doc-${key}`} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                className="sr-only" style={{ display: 'none' }} disabled={slot.uploading}
+                onChange={e => handleFile(key, e.target.files[0])} />
+
+              <div style={{
+                border: `2px dashed ${slot.uploaded ? '#86EFAC' : slot.error ? '#FECDD3' : '#CBD5E1'}`,
+                borderRadius: '0.75rem', background: slot.uploaded ? '#F0FDF4' : C.bg,
+                padding: '20px', transition: 'all 150ms',
+              }}>
+                {slot.uploaded ? (
+                  /* Uploaded state */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#DCFCE7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '16px', flexShrink: 0 }}>✓</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A' }}>{label} — Uploaded</div>
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        {slot.uploaded.file?.split('/').pop() || 'Document on file'} · Click to replace
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state */
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <UploadIcon />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: C.textPrimary, marginBottom: 2 }}>
+                      {slot.uploading ? 'Uploading…' : label}
+                    </div>
+                    {!slot.uploading && (
+                      <div style={{ fontSize: '12px', color: C.textMuted }}>
+                        Click to upload &nbsp;<span style={{ color: C.primary }}>or drag and drop</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: C.textMuted, marginTop: 4 }}>{hint}</div>
+                  </div>
+                )}
+
+                {slot.error && (
+                  <div style={{ marginTop: 10, fontSize: '12px', color: '#E11D48',
+                    background: '#FFF1F2', borderRadius: '0.375rem', padding: '6px 10px' }}>
+                    ⚠ {slot.error}
+                  </div>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {!atLeastOne && (
+        <p style={{ marginTop: 16, fontSize: '13px', color: '#F97316', fontWeight: '500' }}>
+          ⚠ Upload at least one document to continue.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+        <button onClick={() => navigate('/onboarding/step/2')} style={btn.ghost}>← Back</button>
+        <button onClick={() => navigate('/onboarding/review')} disabled={!atLeastOne}
+          style={{ ...btn.primary, flex: 1, opacity: atLeastOne ? 1 : 0.4 }}>
+          Continue →
+        </button>
+      </div>
+    </OnboardingLayout>
+  );
+}

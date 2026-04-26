@@ -52,87 +52,78 @@ function LoginPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const res  = await fetch('/api/v1/auth/login/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
-
       localStorage.setItem('kyc_token', data.token);
       localStorage.setItem('kyc_role',  data.role);
-      // Clear any stale app id from a previous session
+      localStorage.setItem('kyc_email', email);
       localStorage.removeItem('kyc_app_id');
-
-      if (data.role === 'reviewer') navigate('/reviewer/queue', { replace: true });
-      else                          navigate('/dashboard',       { replace: true });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      navigate(data.role === 'reviewer' ? '/reviewer/queue' : '/dashboard', { replace: true });
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   }
 
+  const fieldStyle = {
+    display: 'block', width: '100%', background: '#FFFFFF',
+    border: '1px solid #E2E8F0', borderRadius: '0.5rem',
+    padding: '0.5rem 0.75rem', fontSize: '14px', color: '#1E293B',
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-      <div
-        className="w-full max-w-sm p-8 rounded-2xl border"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-      >
-        <div className="mb-8 text-center">
-          <div className="text-3xl font-bold mb-1" style={{ color: 'var(--accent)' }}>Playto KYC</div>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Sign in to your account</div>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        {/* Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#6366F1', marginBottom: 4 }}>Playto KYC</div>
+          <p style={{ fontSize: '14px', color: '#64748B' }}>Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="login-email" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Email
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            />
-          </div>
-          <div>
-            <label htmlFor="login-password" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-              Password
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            />
-          </div>
+        {/* Card */}
+        <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '32px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div>
+              <label htmlFor="login-email" style={{ display: 'block', fontSize: '12px', fontWeight: '500',
+                color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Email
+              </label>
+              <input id="login-email" type="email" required value={email}
+                onChange={e => setEmail(e.target.value)} style={fieldStyle} />
+            </div>
+            <div>
+              <label htmlFor="login-password" style={{ display: 'block', fontSize: '12px', fontWeight: '500',
+                color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Password
+              </label>
+              <input id="login-password" type="password" required value={password}
+                onChange={e => setPassword(e.target.value)} style={fieldStyle} />
+            </div>
 
-          {error && <p className="text-xs" style={{ color: 'var(--red)' }}>{error}</p>}
+            {error && (
+              <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '0.5rem',
+                padding: '10px 12px', fontSize: '13px', color: '#E11D48' }}>
+                {error}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 rounded-lg font-semibold text-sm"
-            style={{ background: 'var(--accent)', color: '#0d1117', opacity: loading ? 0.7 : 1 }}
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            <button type="submit" disabled={loading}
+              style={{ background: '#6366F1', color: '#FFF', border: 'none', borderRadius: '0.5rem',
+                padding: '0.625rem', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                opacity: loading ? 0.7 : 1, transition: 'background 150ms' }}>
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
 
-        <p className="mt-6 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-          Test credentials — Reviewer: <code>reviewer@test.com</code> / <code>test123</code><br />
-          Merchant: <code>merchant_a@test.com</code> or <code>merchant_b@test.com</code> / <code>test123</code>
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#94A3B8', marginTop: 20 }}>
+          Reviewer: <code>reviewer@test.com</code> &nbsp;|&nbsp;
+          Merchant: <code>merchant_a@test.com</code> &nbsp;— all passwords: <code>test123</code>
         </p>
       </div>
     </div>
