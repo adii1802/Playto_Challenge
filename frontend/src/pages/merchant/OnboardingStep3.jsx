@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api';
+import axios from 'axios';
+import API_BASE from '../../api';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import OnboardingLayout from '../../components/OnboardingLayout';
 import { C, btn, Spinner } from '../../styles';
@@ -56,10 +57,12 @@ export default function OnboardingStep3() {
     if (err) { setSlot(key, { error: err }); return; }
     setSlot(key, { uploading: true, error: '' });
     try {
+      const headers = {
+        Authorization: `Token ${localStorage.getItem('kyc_token')}`,
+        'Content-Type': 'multipart/form-data',
+      };
       const fd = new FormData(); fd.append('doc_type', key); fd.append('file', file);
-      const res = await api.post(`/applications/${appId}/documents/`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await axios.post(`${API_BASE}/api/v1/applications/${appId}/documents/`, fd, { headers });
       setSlot(key, { uploaded: res.data, uploading: false });
     } catch (err) {
       setSlot(key, { error: err.response?.data?.error || 'Upload failed', uploading: false });

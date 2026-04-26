@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api from '../api';
+import axios from 'axios';
+import API_BASE from '../api';
 import AppShell from '../components/AppShell';
 import { C, STATUS, StatusBadge, Spinner, btn } from '../styles';
 
@@ -82,7 +83,8 @@ export default function ReviewerApplicationDetail() {
   const fetchApp = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get(`/reviewer/application/${id}/`);
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
+      const res = await axios.get(`${API_BASE}/api/v1/reviewer/application/${id}/`, { headers });
       setApp(res.data);
     } catch (err) {
       setError(err.response?.data?.error || err.message);
@@ -95,7 +97,8 @@ export default function ReviewerApplicationDetail() {
   async function handleAction(reason) {
     setActionLoading(true); setActionError('');
     try {
-      await api.post(`/reviewer/application/${id}/action/`, { action: activeAction, reason });
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
+      await axios.post(`${API_BASE}/api/v1/reviewer/application/${id}/action/`, { action: activeAction, reason }, { headers });
       setActiveAction(null);
       navigate('/reviewer/queue');
     } catch (err) {

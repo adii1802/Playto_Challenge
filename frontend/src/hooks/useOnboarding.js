@@ -4,7 +4,8 @@
  * Stores app_id in localStorage so the session is resumable.
  */
 import { useState, useEffect, useCallback } from 'react';
-import api from '../api';
+import axios from 'axios';
+import API_BASE from '../api';
 
 export function useOnboarding() {
   const [appId, setAppId] = useState(null);
@@ -14,12 +15,13 @@ export function useOnboarding() {
 
   useEffect(() => {
     async function init() {
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
       try {
         const storedId = localStorage.getItem('kyc_app_id');
 
         if (storedId) {
           try {
-            const res = await api.get(`/applications/${storedId}/`);
+            const res = await axios.get(`${API_BASE}/api/v1/applications/${storedId}/`, { headers });
             setAppId(storedId);
             setAppData(res.data);
             return;
@@ -29,7 +31,7 @@ export function useOnboarding() {
         }
 
         // Fetch all merchant applications
-        const listRes = await api.get('/applications/');
+        const listRes = await axios.get(`${API_BASE}/api/v1/applications/`, { headers });
         const apps = Array.isArray(listRes.data) ? listRes.data : [];
 
         // Prefer editable states
@@ -38,13 +40,13 @@ export function useOnboarding() {
         const target = active || latest;
 
         if (target) {
-          const detailRes = await api.get(`/applications/${target.id}/`);
+          const detailRes = await axios.get(`${API_BASE}/api/v1/applications/${target.id}/`, { headers });
           localStorage.setItem('kyc_app_id', String(target.id));
           setAppId(String(target.id));
           setAppData(detailRes.data);
         } else {
           // No application yet — create one
-          const createRes = await api.post('/applications/');
+          const createRes = await axios.post(`${API_BASE}/api/v1/applications/`, {}, { headers });
           const newId = String(createRes.data.id);
           localStorage.setItem('kyc_app_id', newId);
           setAppId(newId);
@@ -63,7 +65,8 @@ export function useOnboarding() {
     const id = appId || localStorage.getItem('kyc_app_id');
     if (!id) return null;
     try {
-      const res = await api.get(`/applications/${id}/`);
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
+      const res = await axios.get(`${API_BASE}/api/v1/applications/${id}/`, { headers });
       setAppData(res.data);
       return res.data;
     } catch {

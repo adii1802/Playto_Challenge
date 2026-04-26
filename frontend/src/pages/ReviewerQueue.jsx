@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import axios from 'axios';
+import API_BASE from '../api';
 import AppShell from '../components/AppShell';
 import { C, STATUS, StatusBadge, Spinner } from '../styles';
 
@@ -32,9 +33,10 @@ export default function ReviewerQueue() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError('');
     try {
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
       const [qRes, mRes] = await Promise.all([
-        api.get('/reviewer/queue/'),
-        api.get('/reviewer/metrics/'),
+        axios.get(`${API_BASE}/api/v1/reviewer/queue/`, { headers }),
+        axios.get(`${API_BASE}/api/v1/reviewer/metrics/`, { headers }),
       ]);
       setQueue(qRes.data);
       setMetrics(mRes.data);

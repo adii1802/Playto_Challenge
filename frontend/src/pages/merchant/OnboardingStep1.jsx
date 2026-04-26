@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api';
+import axios from 'axios';
+import API_BASE from '../../api';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import OnboardingLayout from '../../components/OnboardingLayout';
 import { C, inp, lbl, btn, Spinner } from '../../styles';
@@ -26,8 +27,9 @@ export default function OnboardingStep1() {
     if (!appId) return;
     setSaving(true); setError('');
     try {
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
       const method = appData?.personal_detail ? 'put' : 'post';
-      await api[method](`/applications/${appId}/personal-detail/`, form);
+      await axios[method](`${API_BASE}/api/v1/applications/${appId}/personal-detail/`, form, { headers });
       setSaved(true);
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.detail || 'Save failed');

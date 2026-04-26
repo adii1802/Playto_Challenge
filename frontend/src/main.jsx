@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './index.css';
+import API_BASE from './api';
 
 // Reviewer pages
 import ReviewerQueue from './pages/ReviewerQueue';
@@ -54,7 +55,7 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res  = await fetch('/api/v1/auth/login/', {
+      const res  = await fetch(`${API_BASE}/api/v1/auth/login/`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });

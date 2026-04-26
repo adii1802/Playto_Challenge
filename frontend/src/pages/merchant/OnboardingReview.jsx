@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api';
+import axios from 'axios';
+import API_BASE from '../../api';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import OnboardingLayout from '../../components/OnboardingLayout';
 import { C, StatusBadge, btn, Spinner } from '../../styles';
@@ -44,7 +45,8 @@ export default function OnboardingReview() {
     if (!appId) return;
     setSubmitting(true); setError('');
     try {
-      await api.post(`/applications/${appId}/submit/`);
+      const headers = { Authorization: `Token ${localStorage.getItem('kyc_token')}` };
+      await axios.post(`${API_BASE}/api/v1/applications/${appId}/submit/`, {}, { headers });
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || err.response?.data?.error || 'Submission failed. Check all steps are complete.');
